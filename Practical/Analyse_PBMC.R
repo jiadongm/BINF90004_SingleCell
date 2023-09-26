@@ -4,7 +4,7 @@
 # https://satijalab.org/seurat/articles/sctransform_v2_vignette 
 
 ## Set working directory
-setwd("~/Teaching/BINF")
+setwd("~/BINF90004_SingleCell/Practical")
 
 ## Load necessary packages & functions
 source("loadPkgs.R")

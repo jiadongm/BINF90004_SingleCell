@@ -1,5 +1,5 @@
 ## Set working directory
-setwd("~/Teaching/BINF")
+setwd("~/BINF90004_SingleCell/Practical")
 
 ## Load necessary packages & functions
 source("loadPkgs.R")

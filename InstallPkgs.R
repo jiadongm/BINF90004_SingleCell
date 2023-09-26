@@ -27,6 +27,7 @@ BiocManager::install("scran")
 BiocManager::install("scuttle")
 BiocManager::install("SingleR")
 BiocManager::install("celldex")
+BiocManager::install("scater")
 devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
 ArchR::installExtraPackages()
 ## TiddyVerse universe

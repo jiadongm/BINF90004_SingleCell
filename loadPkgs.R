@@ -9,6 +9,7 @@ library(tibble)
 
 ## Bioinf
 library(Seurat)
+options(Seurat.object.assay.version = 'v5')
 library(SeuratData)
 library(SeuratObject)
 library(scran)

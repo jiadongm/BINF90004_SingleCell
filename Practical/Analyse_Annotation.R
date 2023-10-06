@@ -2,14 +2,14 @@
 # https://bioconductor.org/packages/release/bioc/vignettes/SingleR/inst/doc/SingleR.html 
 
 ## Set working directory
-setwd("~/BINF90004_SingleCell/Practical")
+setwd("~/Documents/GitHub/BINF90004_SingleCell/Practical")
 
 ## Load necessary packages & functions
 source("loadPkgs.R")
 source("Viz.R")
 
 ## Prepare query single cell BMMC
-if(F){
+if(T){
   # Install data (only need to install once)
   if(F){
     AvailableData()
@@ -43,7 +43,9 @@ if(F){
   bmmc <- computeSumFactors(bmmc, cluster=quickCluster(bmmc))
   bmmc <- logNormCounts(bmmc)
 }
+# rename bmmc dataset as query, delete bmmc to save space
 query <- bmmc
+rm(bmmc); gc()
 
 ## Prepare reference data (stored in celldex)
 reference <- MonacoImmuneData()
@@ -64,6 +66,7 @@ singleRassay <- "logcounts"
 YtrainName <- "label.main"
 sr_train <- trainSingleR(assay(reference, singleRassay),
                          labels = colData(reference)[, YtrainName])
+# This step may take very long time if the number of query cells is large
 sr_re <- classifySingleR(assay(query, singleRassay),
                          sr_train,
                          fine.tune = T)   
@@ -71,6 +74,8 @@ sr_re <- classifySingleR(assay(query, singleRassay),
 plotScoreHeatmap(sr_re)
 # Store the annotations
 query$SingleR_main <- sr_re$labels
+
+## Annotate query cells using refined cell type labels
 YtrainName <- "label.fine"
 sr_train <- trainSingleR(assay(reference, singleRassay),
                          labels = colData(reference)[, YtrainName])
@@ -86,7 +91,7 @@ query$SingleR_fine <- sr_re$labels
 plotSankey(query$SingleR_main, query$celltype.l1)
 plotSankey(query$SingleR_fine, query$celltype.l2)
 
-# Diagnoistics
+# Diagnoistics (see singleR vignette for explanations)
 plotDeltaDistribution(sr_re)
 plotScoreDistribution(sr_re)
 

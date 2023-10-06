@@ -1,5 +1,5 @@
 ## Set working directory
-setwd("~/BINF90004_SingleCell/Practical")
+setwd("~/Documents/GitHub/BINF90004_SingleCell/Practical")
 
 ## Load necessary packages & functions
 source("loadPkgs.R")
@@ -28,7 +28,7 @@ for(i in 1:length(celltypes)){
 }
 bmmc <- bmmc[,toKeepIdx]
 
-# Simple QC
+# Simple QC (only delete genes with zero expression in all cells)
 feat2keep <- rownames(bmmc)[rowMeans(bmmc[["RNA"]]$counts == 0) < 1]
 bmmc <- bmmc[feat2keep,]
 
@@ -42,10 +42,12 @@ bmmc <- SingleCellExperiment(
 set.seed(5202056)
 bmmc <- computeSumFactors(bmmc, cluster=quickCluster(bmmc))
 bmmc <- logNormCounts(bmmc)
+if(F){
+  temp <- assay(bmmc, "counts")
+  temp <- log(t(t(temp)/colSums(temp)) * 1000000 + 1)
+  assay(bmmc, "cpm") <- temp
+}
 
-temp <- assay(bmmc, "counts")
-temp <- log(t(t(temp)/colSums(temp)) * 1000000 + 1)
-assay(bmmc, "cpm") <- temp
 
 ### Dimension reduction --------------------------------------------------
 # PCA using svds
@@ -59,8 +61,11 @@ pc_load <- svd_res$v
 dimnames(pc_score) <- list(rownames(dat), paste0("comp", 1:ncol(pc_score)))
 dimnames(pc_load) <- list(colnames(dat), paste0("comp", 1:ncol(pc_load)))
 
+# Scree plot (again, not very useful)
+totVar <- sum(dat^2)
+(svd_res$d^2/totVar) %>% plot()
 
-# UMAP
+# UMAP + PCA visualisation 
 umap_res <- umap(pc_score %>% as.data.frame() %>% select(comp1:comp50))
 umap_score <- umap_res$layout
 colnames(umap_score) <- paste0("comp", 1:ncol(umap_score))
@@ -69,17 +74,18 @@ p1 <-
   as.data.frame() %>%
   mutate(labs = bmmc$celltype.l2) %>%
   ggplot(aes(x = comp1, y = comp2)) +
-  geom_point(aes(colour = labs), alpha = 0.4, stroke = NA, size = 3)
+  geom_point(aes(colour = labs), alpha = 1, stroke = NA, size = 3)
 p2 <-
 umap_score %>%
   as.data.frame() %>%
   mutate(labs = bmmc$celltype.l2) %>%
   ggplot(aes(x = comp1, y = comp2)) +
-  geom_point(aes(colour = labs), alpha = 0.4, stroke = NA, size = 3)
-
+  geom_point(aes(colour = labs), alpha = 1, stroke = NA, size = 3)
 ggarrange(p1, p2, common.legend = T)
 
-# matrix plot for PCs
+
+# matrix plot for PCs, allowing us to see more PCs than the first 2
+# (Probably 20 is a good number of PCs?)
 plot_dat <- pc_score %>%
   as.data.frame() %>%
   mutate(labs = bmmc$celltype.l2)
@@ -91,6 +97,8 @@ outPlots <- matrixPlot(plot_dat, comp_idx = 21:25, groupKey = "labs")
 outPlots <- matrixPlot(plot_dat, comp_idx = 26:30, groupKey = "labs")
 outPlots <- matrixPlot(plot_dat, comp_idx = 41:45, groupKey = "labs")
 outPlots <- matrixPlot(plot_dat, comp_idx = 45:50, groupKey = "labs")
+
+
 
 # Look at specific cell types
 plot_dat %>%
@@ -115,17 +123,6 @@ outPlots <- matrixPlot(plot_dat, comp_idx = 21:25, groupKey = "labs", manualCol 
 outPlots <- matrixPlot(plot_dat, comp_idx = 26:30, groupKey = "labs", manualCol = manualCols)
 outPlots <- matrixPlot(plot_dat, comp_idx = 41:45, groupKey = "labs", manualCol = manualCols)
 outPlots <- matrixPlot(plot_dat, comp_idx = 45:50, groupKey = "labs", manualCol = manualCols)
-
-
-# UMAP again
-umap_res <- umap(pc_score %>% as.data.frame() %>% select(comp1:comp20))
-umap_score <- umap_res$layout
-colnames(umap_score) <- paste0("comp", 1:ncol(umap_score))
-umap_score %>%
-  as.data.frame() %>%
-  mutate(labs = bmmc$celltype.l2) %>%
-  ggplot(aes(x = comp1, y = comp2)) +
-  geom_point(aes(colour = labs))
 
 
 

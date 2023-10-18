@@ -53,6 +53,30 @@ reference <- MonacoImmuneData()
 reference
 reference@colData
 
+## Viz reference
+library(plotly)
+# PCA using svds
+dat <- assay(reference, "logcounts") %>%
+  as.matrix() %>%
+  t() %>%
+  scale(center = T, scale = F)
+svd_res <- svds(dat, k = 50)
+pc_score <-  svd_res$u %*% diag(svd_res$d)
+pc_load <- svd_res$v
+dimnames(pc_score) <- list(rownames(dat), paste0("comp", 1:ncol(pc_score)))
+dimnames(pc_load) <- list(colnames(dat), paste0("comp", 1:ncol(pc_load)))
+# 3D plot
+pc_score %>%
+  as.data.frame() %>%
+  plot_ly(
+    x = ~comp1,
+    y = ~comp2,
+    z = ~comp3,
+    color = reference$label.fine
+  ) %>%
+  add_markers()
+
+
 
 ## Common genes and rank transform
 commonGenes <- intersect(rownames(reference), rownames(query))

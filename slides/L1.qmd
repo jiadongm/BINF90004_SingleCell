@@ -25,6 +25,10 @@ suppressPackageStartupMessages({
 })
 D <- if (dir.exists("data")) "data" else "../data"
 group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
+
+# Loaded here rather than mid-deck: two later slides use it, and if it is
+# loaded inside a slide chunk, deleting that slide silently breaks them.
+seu <- readRDS(file.path(D, "P1_start.rds"))
 ```
 
 # Part 1 {.center}

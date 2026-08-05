@@ -1,12 +1,15 @@
 # Data comes from Zenodo (10.5281/zenodo.21803240), never from git.
 data/
 
-# Rendered output and caches
-*_cache/
-*_files/
+# Build output in the source folders. Anchored with a leading slash so these
+# rules do NOT apply to docs/ — the published site needs its *_files/
+# directories, and git cannot re-include files inside an ignored directory.
 /practicals/*.html
+/practicals/*_files/
+/practicals/*_cache/
 /slides/*.html
-!docs/**
+/slides/*_files/
+/slides/*_cache/
 
 # R
 .Rproj.user/

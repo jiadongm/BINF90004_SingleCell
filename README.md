@@ -4,6 +4,9 @@
 
 Guest lecture and practical for [BINF90004 Bioinformatics Case Studies](https://handbook.unimelb.edu.au/subjects/binf90004), Master of Bioinformatics, University of Melbourne.
 
+### 📖 [Read the materials online →](https://jiadongm.github.io/BINF90004_SingleCell/)
+
+Both practicals and both lecture decks, fully rendered with all code, output and figures. **If your R installation will not work, you can follow the entire session there** — the decisions you are assessed on are answered by thinking, not by running code. Come anyway and sit next to someone whose laptop works.
 
 ------------------------------------------------------------------------
 
@@ -101,6 +104,8 @@ source("setup/verify_setup.R")
 ```
 
 You want `ALL CHECKS PASSED`. If not, the script prints a numbered list of problems and a **diagnostic block** at the bottom. Copy that whole block into the LMS thread — it contains everything needed to diagnose the problem and saves a long back-and-forth.
+
+**Then stop.** Do not spend your evening on it. Follow the session on the [rendered materials](https://jiadongm.github.io/BINF90004_SingleCell/) instead — you will not be disadvantaged.
 
 
 ------------------------------------------------------------------------

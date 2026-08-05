@@ -1,9 +1,4 @@
----
 
-editor_options: 
-  markdown: 
-    wrap: 72
----
 
 # Single-cell RNA-seq — BINF90004 Bioinformatics Case Studies
 

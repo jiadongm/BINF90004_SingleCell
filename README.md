@@ -128,11 +128,12 @@ large Bioconductor download and a common point of failure.
 
 ### 3. Download the data
 
-<!-- TODO: replace with the real Zenodo DOI before circulating to students -->
-> ⚠️ **Placeholder — not yet published.** The data bundle will be at
-> **`https://doi.org/10.5281/zenodo.XXXXXXX`**. This link does not work yet.
+The data bundle is on Zenodo:
 
-Download the bundle and unzip it so your working folder looks like this:
+**<https://doi.org/10.5281/zenodo.21803240>**
+
+Download **`binf90004_scrnaseq_data_2026.zip`** and unzip it into the root of
+this repository, so your working folder looks like this:
 
 ```
 BINF90004_SingleCell/

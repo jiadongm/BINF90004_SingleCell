@@ -1,0 +1,461 @@
+---
+title: "Single-cell RNA-seq"
+subtitle: "From clusters to conclusions · BINF90004 Bioinformatics Case Studies"
+author: "Dr Jiadong Mao · Melbourne Integrative Genomics"
+date: today
+format:
+  revealjs:
+    theme: default
+    slide-number: true
+    chalkboard: true
+    width: 1280
+    height: 720
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r setup}
+suppressPackageStartupMessages({
+    library(Seurat); library(ggplot2); library(dplyr); library(speckle)
+})
+D <- if (dir.exists("data")) "data" else "../data"
+group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
+s2  <- readRDS(file.path(D, "checkpoints/02_integrated_clustered.rds"))
+key <- readRDS(file.path(D, "celltype_key.rds"))
+lab <- readRDS(file.path(D, "cluster_labels.rds"))
+s2$celltype <- unname(lab[as.character(s2$seurat_clusters)])
+```
+
+## Where we are
+
+You have **19 clusters**. Clusters are numbered blobs.
+
+<br>
+
+Today's second half: give them names, then use those names to make two
+biological claims.
+
+::: {.fragment}
+1. Which cell types change in abundance as the heart matures?
+2. Which genes change *within* a cell type?
+:::
+
+::: {.fragment}
+The second is where most published single-cell analyses go wrong.
+:::
+
+# Part 1 {.center}
+
+## Annotation {.center}
+
+## Three ways to name a cluster
+
+::: {.incremental}
+**Manual, marker-based** — find genes enriched in the cluster, look them up.
+Flexible, slow, needs domain knowledge.
+
+**Reference-based** — map onto an annotated atlas (Azimuth, SingleR,
+CellTypist). Fast, reproducible, fails on cell types absent from the reference.
+
+**Soft / continuous** — score every cell against every reference phenotype
+instead of assigning one label.
+:::
+
+## Why hard labels are uncomfortable
+
+A cell is not obliged to belong to a category we invented.
+
+- Differentiating cells are genuinely between states
+- Doublets are genuinely two things
+- Novel cell types are genuinely not in your reference
+
+::: {.fragment}
+**Φ-Space** (our lab) replaces the label with a vector of scores — one per
+reference phenotype. Cells that sit between types *look* like they sit between
+types.
+:::
+
+::: {.notes}
+Pull figures from afternoon_30min_xaringan.Rmd in the workshop repo.
+Keep this brief - 2 slides. It is a signpost, not a tutorial.
+:::
+
+## The trap
+
+```{r purity}
+tb <- table(s2$seurat_clusters, key[colnames(s2)])
+df <- data.frame(
+    cluster = rownames(tb),
+    n = as.integer(rowSums(tb)),
+    published = colnames(tb)[apply(tb, 1, which.max)],
+    agreement = paste0(round(100 * apply(tb, 1, max) / rowSums(tb)), "%"))
+knitr::kable(head(df[order(-df$n), ], 10))
+```
+
+## Two failures at once {background-color="#F5E9E9"}
+
+**Too fine.** 19 clusters, and **11 of them are cardiomyocytes**.
+
+::: {.fragment}
+**Too coarse.** The published analysis has 8 cell types. You recover **6**.
+Smooth muscle (62 nuclei) and erythroid (9) get no cluster at all — 60 of the 62
+smooth muscle nuclei are hidden inside cluster 3.
+:::
+
+::: {.fragment}
+<br>
+
+**Nothing in the output flagged either one.** Every one of those 11
+cardiomyocyte clusters has perfectly good marker genes.
+:::
+
+## Rare populations
+
+Two independent ways to lose them, both of which you have now seen:
+
+1. **QC thresholds** — endothelial and immune cells were hit hardest by
+   `percent.mt < 5`
+2. **Clustering** — smooth muscle never formed a cluster of its own
+
+<br>
+
+::: {.fragment}
+Both failures point the same direction. If your question is about a rare cell
+type, every default in the pipeline is working against you.
+:::
+
+# Part 2 {.center}
+
+## Composition {.center}
+
+## Do proportions change?
+
+```{r comp, fig.width=10, fig.height=4.5}
+s2@meta.data |>
+    count(sample, group, celltype) |>
+    group_by(sample) |> mutate(prop = n / sum(n)) |> ungroup() |>
+    ggplot(aes(sample, prop, fill = celltype)) +
+    geom_col() +
+    facet_grid(~ group, scales = "free_x", space = "free_x") +
+    labs(x = NULL, y = "proportion of nuclei", fill = NULL) +
+    theme_minimal()
+```
+
+## The wrong way
+
+A chi-square test on cell counts.
+
+::: {.fragment}
+With ~7,000 nuclei, almost everything is significant.
+:::
+
+::: {.fragment}
+<br>
+
+**Your independent units are the nine donors, not the nuclei.** Nuclei from one
+donor are subsamples of a single biological observation.
+:::
+
+## propeller
+
+```{r propeller}
+pr <- propeller(clusters = s2$celltype, sample = s2$sample, group = s2$group)
+knitr::kable(pr[, c("PropMean.fetal", "PropMean.young", "PropMean.adult", "FDR")],
+             digits = 4)
+```
+
+Computes each **donor's** proportions, transforms them, tests across donors.
+
+## What it says
+
+Cardiomyocytes fall from **~74%** of nuclei in foetal hearts to **~24%** in
+adult. Immune cells and fibroblasts rise.
+
+<br>
+
+::: {.fragment}
+Two things before you believe it:
+
+1. These are **nuclear** proportions. Adult cardiomyocytes are binucleated and
+   polyploid — part of this is the denominator changing, not the tissue.
+2. Compositions **sum to 1**. If cardiomyocytes fall, everything else rises
+   whether or not anything happened to it.
+:::
+
+# Part 3 {.center}
+
+## Differential expression {.center}
+
+## The question
+
+Within cardiomyocytes: which genes differ between adult and foetal hearts?
+
+<br>
+
+::: {.fragment}
+Every tutorial reaches for `FindMarkers()`. On this data it returns
+**~2,000 significant genes**.
+:::
+
+::: {.fragment}
+That number is wrong, and the reason is the most important thing in this
+lecture.
+:::
+
+## Pseudoreplication
+
+`FindMarkers` treats **every nucleus as an independent replicate**.
+
+They are not. Nuclei from one donor share:
+
+- that donor's genome
+- their age, sex, medication, disease history
+- one tissue dissociation, one library prep, one sequencing run
+
+::: {.fragment}
+<br>
+
+**Effective sample size is 3 donors per group, not 3,200 nuclei.**
+:::
+
+## A control that should find nothing
+
+Take two donors at the **same** developmental stage. There is no developmental
+difference to find.
+
+```{r demo, fig.width=8, fig.height=3.6}
+demo <- readRDS(file.path(D, "de_demo.rds"))
+ggplot(demo$wilcoxon, aes(reorder(comparison, n_sig), n_sig, fill = kind)) +
+    geom_col() + coord_flip() +
+    scale_fill_manual(values = c(`real contrast` = "#2980B9",
+                                 `same stage (foetal)` = "#C0392B")) +
+    labs(x = NULL, y = "genes called significant", fill = NULL,
+         subtitle = "per-nucleus Wilcoxon, 300 cells per side") +
+    theme_minimal()
+```
+
+## Read that again {background-color="#F5E9E9"}
+
+Two foetal donors — same stage, same tissue, same protocol — produce
+**hundreds of "significantly differentially expressed" genes**.
+
+<br>
+
+::: {.fragment}
+There is no biology in that comparison. Those genes are **donor variation**
+reported to you as a finding.
+:::
+
+::: {.fragment}
+The noise floor is **~25%** of the "real" adult-vs-foetal result.
+:::
+
+## What that means
+
+When the per-nucleus test says 2,000 genes separate adult from foetal
+cardiomyocytes, it **cannot distinguish**:
+
+<br>
+
+*"adult hearts differ from foetal hearts"*
+
+from
+
+*"these three donors differ from those three donors"*
+
+<br>
+
+::: {.fragment}
+It never modelled donor. It has no way to tell them apart.
+:::
+
+## Pseudobulk
+
+Sum counts within each **donor × cell type**. One profile per donor.
+
+<br>
+
+Then use methods built for a handful of replicates — which is what bulk RNA-seq
+methods are. `edgeR`, `limma-voom`, `DESeq2`.
+
+::: {.fragment}
+<br>
+
+Nine columns instead of seven thousand. **That was always the real sample size.**
+:::
+
+## And the control?
+
+Run the same two-foetal-donor comparison through pseudobulk:
+
+<br>
+
+::: {.fragment}
+It **refuses**. One sample per group — there is no residual variance to
+estimate.
+:::
+
+::: {.fragment}
+<br>
+
+**That refusal is the correct answer.** The per-nucleus test does not refuse. It
+manufactures thousands of degrees of freedom from one donor and hands you a gene
+list.
+:::
+
+::: {.notes}
+Squair et al., Nature Communications 2021. Cite it.
+:::
+
+## What you can honestly conclude
+
+- n = 3 per group. Small.
+- Sex is confounded with stage (2M/1F, 2M/1F, 1M/2F)
+- Donors differ in depth and quality — `a3` loses far more nuclei to any QC
+  threshold than `f1`
+- Cell type labels are an interpretation, not a measurement
+- Pseudobulk discards within-type heterogeneity by construction
+
+::: {.fragment}
+Your report needs a section like this. It is not a weakness to admit them —
+it is the difference between a result and a claim.
+:::
+
+# Part 4 {.center}
+
+## Where the field is going {.center}
+
+## Beyond discrete labels
+
+**Trajectory / pseudotime** — order cells along a continuous process rather than
+binning them. Slingshot, Monocle3, DPT, RNA velocity.
+
+**Cell–cell interaction** — infer signalling between cell types from
+ligand–receptor expression. CellPhoneDB, CellChat.
+
+**Cell-specific networks** — a co-expression network *per cell* rather than per
+cluster.
+
+::: {.notes}
+One slide each at most, with a figure from the workshop deck. This is a
+signpost section - do not teach the methods.
+:::
+
+## Spatial transcriptomics
+
+scRNA-seq tells you **which cells are doing what**.
+
+Spatial tells you **where they are doing it**.
+
+::: {.fragment}
+- Sequencing-based: Visium, Visium HD, Slide-seq
+- Imaging-based: Xenium, CosMx, MERFISH
+:::
+
+::: {.fragment}
+Tumour microenvironment, tissue architecture, niches — questions dissociation
+destroys.
+:::
+
+## What is a cell, spatially?
+
+Resolutions: super-cellular, near-cellular, sub-cellular
+
+**The common problem: mixed cell identities**
+
+- imperfect segmentation
+- arbitrary binning
+- transcript diffusion and misassignment
+
+::: {.fragment}
+The same "hard labels are uncomfortable" problem, in a new place.
+:::
+
+::: {.notes}
+Reuse the two spatial slides from the 2025 deck - they are still good.
+:::
+
+## Foundation models
+
+scGPT, Geneformer, scFoundation, UCE — transformers pre-trained on tens of
+millions of cells.
+
+::: {.fragment}
+Promise: transfer to new tissues, few-shot annotation, in-silico perturbation.
+:::
+
+::: {.fragment}
+Open question: **do they beat well-tuned simple baselines?** For several tasks
+the honest answer is still "not clearly".
+:::
+
+::: {.fragment}
+A good report topic, and a good place to practise the scepticism from this
+morning.
+:::
+
+# The five decisions {.center}
+
+## What you chose, and what a default would have chosen
+
+| | Default | You |
+|---|---|---|
+| QC thresholds | `percent.mt < 5` | ? |
+| Number of PCs | 10 | ? |
+| Clustering resolution | 0.8 | ? |
+| Cluster identity | whatever the markers suggest | ? |
+| DE method | per-nucleus Wilcoxon | ? |
+
+::: {.fragment}
+**Every one of these ran without an error message either way.**
+:::
+
+## What the agent did, scored
+
+| Step | Its choice | OK here? | Said so? |
+|---|---|---|---|
+| Assay | inferred **snRNA-seq** from MT + ribo | ✅ | ✅ |
+| QC | ≥500 genes, ≥1000 UMI, MT <10% | ✅ | ✅ |
+| Per-donor loss | flagged `y3`, `a3` | ✅ | ✅ |
+| Integration | Harmony **+ explicit batch-vs-biology test** | ✅ | ✅ |
+| Clustering | Leiden, res 0.6 | ✅ | ✅ |
+| Annotation | 11 canonical categories | ✅ | ✅ |
+| **Composition test** | **none** | ❌ | ❌ |
+| **DE** | **per-cell Wilcoxon → 5,967** | ❌ | ⚠️ last |
+
+::: {.notes}
+Full detail in prerun/SCORING_run_A0.md. 100 min, $7.09, one unprompted run.
+:::
+
+## Same data, two analyses
+
+| | Claude Science | You |
+|---|---|---|
+| Cells after QC | 7,409 | 6,982 |
+| CM foetal → adult | 64.4% → 23.3% | 74% → 24% |
+| Composition test | **none** | propeller, 5/6 significant |
+| CM adult vs foetal | **5,967** (per-cell) | 2,019 per-cell → **1,569 pseudobulk** |
+
+::: {.fragment}
+The *data* agree. The disagreement is entirely about **inference** — and that is
+the part you were trained for.
+:::
+
+## Back to this morning {.center}
+
+> The part of the job that is hardest to automate is not having an idea.
+>
+> It is having an idea that isn't the same idea everyone else's model just had —
+> and being able to tell whether the answer on the screen is real.
+
+## Your report
+
+**TODO — dataset options and brief.**
+
+::: {.notes}
+Confirm the assessment brief with the subject coordinator. JM does not mark it.
+:::

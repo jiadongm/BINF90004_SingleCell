@@ -1,0 +1,529 @@
+---
+title: "Practical 1 — From counts to clusters"
+subtitle: "BINF90004 Bioinformatics Case Studies · scRNA-seq"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.align = "center")
+```
+
+# Before you start
+
+**You have 65 minutes. You are not expected to finish every chunk.**
+
+There is one **hard sync point**, marked in red below. When we reach it, everyone
+loads the same checkpoint file and moves on together — whether or not your own
+code has finished. Nobody gets left behind, so do not panic if you fall behind.
+
+Three sections are marked **DECISION**. These are the point of the practical.
+Each asks you to make a choice that the data alone does not determine, and to
+justify it to the person sitting next to you. If your R is not working, **you can
+still do all three** — they are answered by looking and thinking, not by running
+code.
+
+```{r libraries}
+library(Seurat)
+library(harmony)
+library(clustree)
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+# Not optional. SCTransform hands large objects to parallel workers, and the
+# default 500 MB ceiling is too low - without this you get a
+# "total size of globals exceeds maximum allowed size" error partway through
+# section 3, which looks alarming and is not your fault.
+options(future.globals.maxSize = 8 * 1024^3)
+
+# Resolve the data folder whether you knit from practicals/ or run
+# interactively with the repo root as your working directory.
+DATA <- if (dir.exists("data")) "data" else "../data"
+```
+
+```{r palettes}
+group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
+sample_cols <- c(
+    f1 = "#9ECAE1", f2 = "#6BAED6", f3 = "#3182BD",
+    y1 = "#FDD0A2", y2 = "#FDAE6B", y3 = "#E6550D",
+    a1 = "#C7E9C0", a2 = "#A1D99B", a3 = "#31A354"
+)
+```
+
+---
+
+# 1. The data
+
+Human heart, single-**nucleus** RNA-seq, from
+[Sim et al. (2021), *Circulation*](https://doi.org/10.1161/CIRCULATIONAHA.120.051921) —
+a study of how the human heart matures. Nine donors across three developmental
+stages:
+
+| Group  | Donors | Age |
+|--------|--------|-----|
+| foetal | f1, f2, f3 | 19–20 weeks |
+| young  | y1, y2, y3 | 4–14 years |
+| adult  | a1, a2, a3 | 35–42 years |
+
+Note **snRNA-seq**, not scRNA-seq: nuclei were isolated rather than whole cells.
+Keep that in mind — it will matter within about ten minutes.
+
+```{r load}
+seu <- readRDS(file.path(DATA, "P1_start.rds"))
+seu
+```
+
+Some work has been done for you, to save time — none of it involving a choice:
+cells with <200 genes and genes in <3 cells were dropped, gene annotation was
+attached, QC metrics were computed, uninformative gene classes (ribosomal,
+unannotated, sex-chromosome) were removed, and the object was downsampled to
+8,000 nuclei stratified by donor.
+
+That last step preserves the donors' relative sizes, which are strikingly
+uneven — the adult samples are genuinely much smaller than the foetal ones. That
+imbalance is real, and it will matter twice today.
+
+**No cell filtering has been done.** That is your first decision.
+
+```{r metadata}
+head(seu@meta.data)
+table(seu$sample, seu$group)
+```
+
+Two metadata columns matter now:
+
+- `nCount_RNA` — total UMI counts per nucleus (library size)
+- `nFeature_RNA` — number of genes detected per nucleus
+
+and two we computed:
+
+- `percent.mt` — % of counts from mitochondrial genes
+- `percent.ribo` — % of counts from ribosomal protein genes
+
+---
+
+# 2. Quality control
+
+## 2.1 Look before you filter
+
+The single most common QC mistake is applying a threshold you read somewhere
+without first looking at your own data. So: look first.
+
+```{r qc-violin, fig.width=11, fig.height=8}
+VlnPlot(seu, features = c("nCount_RNA", "nFeature_RNA", "percent.mt", "percent.ribo"),
+        group.by = "sample", pt.size = 0, ncol = 2) &
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r qc-scatter, fig.width=11, fig.height=4.5}
+p1 <- FeatureScatter(seu, "nCount_RNA", "nFeature_RNA", group.by = "sample",
+                     cols = sample_cols) + ggtitle("Library size vs genes detected")
+p2 <- FeatureScatter(seu, "nCount_RNA", "percent.mt", group.by = "sample",
+                     cols = sample_cols) + ggtitle("Library size vs % mitochondrial")
+p1 + p2
+```
+
+Before reading on, answer two questions from the plots:
+
+1. Do all nine donors look alike?
+2. Where would you put a mitochondrial cut-off?
+
+## 2.2 What `percent.mt` actually looks like here
+
+```{r pmt-summary}
+summary(seu$percent.mt)
+
+# Per-donor: what fraction of nuclei would each candidate threshold remove?
+sapply(c(1, 5, 10, 20), function(t) {
+    round(100 * tapply(seu$percent.mt, seu$sample, function(z) mean(z >= t)), 1)
+}) |> `colnames<-`(paste0("< ", c(1, 5, 10, 20)))
+```
+
+The median is around **0.25%**. That is very low — and it is low *because these
+are nuclei*. Mitochondria live in the cytoplasm, and the nuclei prep washes the
+cytoplasm away. A threshold carried over from a whole-cell dataset is answering a
+question this assay does not ask.
+
+Now look across the rows of that table rather than down the columns.
+
+> ### <span style="color:#C0392B">DECISION 1 — where do you cut? *(10 min)*</span>
+>
+> Choose values for `min_genes`, `min_counts`, `max_counts` and `max_mt` below.
+>
+> Then answer, in writing, and be ready to defend it:
+>
+> 1. **How many nuclei did you lose, and from which donors?** Is the loss even?
+> 2. A widely-copied tutorial default is `percent.mt < 5`. Look at that column in
+>    the table above. It removes about **6%** of nuclei overall — but **18% of
+>    donor `a3`** and **1.5% of donor `f1`**, a twelve-fold difference. Is that
+>    acceptable? What would it do to a later comparison of cell type composition
+>    between developmental stages — which is exactly what you will run in
+>    Practical 2?
+> 3. Now look at the `< 1` column, where donor `y3` loses 61% of its nuclei and
+>    `f1` loses 9%. At what point does a quality threshold stop measuring quality
+>    and start measuring which donor a nucleus came from?
+> 4. Would you use one global threshold, or a per-donor one? What is the cost of
+>    each?
+>
+> There is no marking scheme here. There is a defensible answer and an
+> indefensible one, and the difference is whether you looked.
+
+```{r decision-1}
+# ---- YOUR VALUES ----
+min_genes  <- 500
+min_counts <- 2500
+max_counts <- 40000
+max_mt     <- 20
+# ---------------------
+
+n_before <- ncol(seu)
+seu_filt <- subset(seu, subset = nFeature_RNA > min_genes &
+                                 nCount_RNA  > min_counts &
+                                 nCount_RNA  < max_counts &
+                                 percent.mt  < max_mt)
+
+cat("nuclei:", n_before, "->", ncol(seu_filt),
+    sprintf("(%.1f%% removed)\n", 100 * (1 - ncol(seu_filt) / n_before)))
+
+# Where did the losses fall? Index by name, so this still works if a donor
+# loses every nucleus at an aggressive threshold.
+before <- table(seu$sample)
+after  <- table(factor(seu_filt$sample, levels = names(before)))
+data.frame(
+    before   = as.integer(before),
+    after    = as.integer(after),
+    pct_lost = round(100 * (1 - as.integer(after) / as.integer(before)), 1),
+    row.names = names(before)
+)
+```
+
+> ### <span style="color:#2980B9">🤖 What the agent chose here</span>
+>
+> Given this dataset and **no instructions at all**, Claude Science picked
+> **≥500 genes, ≥1000 UMI, `percent.mt < 10`** — and justified the last one like
+> this:
+>
+> > *"mitochondrial fractions are uniformly low (donor medians 0.10–1.78%) **and**
+> > so are ribosomal fractions (0.4–1.3%). That combination points to a
+> > single-nucleus prep rather than whole cells."*
+>
+> Nobody told it this was snRNA-seq. It worked that out from the data. It also
+> flagged that donor `y3` has the shallowest library and that `a3` ends up with
+> only ~200 cells — the same donor problem you just found.
+>
+> **Your question:** can you justify your threshold as well as that? Not "is your
+> number the same" — is your *reason* as good?
+
+> **<span style="color:#C0392B">HARD SYNC POINT.</span>** Whatever you chose, run the
+> chunk below now — including if your own filtering never ran. From here everyone
+> works on an identical object, so the rest of the session lines up. Your own
+> thresholds stay in your notes; we come back to them in the wrap-up.
+
+```{r sync-1}
+# Reference thresholds. Re-read from the original file so this works no matter
+# what state your object is in.
+seu <- readRDS(file.path(DATA, "P1_start.rds"))
+seu <- subset(seu, subset = nFeature_RNA > 500 & nCount_RNA > 2500 &
+                            nCount_RNA < 40000 & percent.mt < 20)
+seu
+```
+
+---
+
+# 3. Normalisation
+
+Nuclei differ enormously in total counts, for reasons that have nothing to do
+with biology — capture efficiency, RNA content, sequencing depth. Normalisation
+removes that technical variation.
+
+**SCTransform** models each gene's counts with a regularised negative binomial
+and returns Pearson residuals. It handles the mean–variance relationship (highly
+expressed genes vary more, just from sampling) better than a simple log
+transform, and picks variable features as a side effect.
+
+```{r sctransform}
+seu <- SCTransform(seu, vst.flavor = "v2", seed.use = 42, verbose = FALSE)
+```
+
+```{r hvg}
+head(VariableFeatures(seu), 20)
+```
+
+---
+
+# 4. Dimension reduction
+
+```{r pca}
+seu <- RunPCA(seu, seed.use = 42, verbose = FALSE)
+```
+
+```{r elbow, fig.width=7, fig.height=4.5}
+ElbowPlot(seu, ndims = 40)
+```
+
+> ### <span style="color:#C0392B">DECISION 2 — how many PCs? *(8 min)*</span>
+>
+> Pick `n_dims` from the elbow plot.
+>
+> 1. Where is the elbow? Do you and your neighbour agree to within 5?
+> 2. What happens downstream if you take too **few**? Too **many**?
+> 3. The elbow plot is a heuristic with no theoretical justification. What would
+>    a more principled choice look like, and why do you think almost nobody
+>    bothers?
+
+```{r decision-2}
+n_dims <- 20   # <- YOUR VALUE
+```
+
+---
+
+# 5. Integration
+
+Cells frequently cluster by *donor* rather than by *cell type*, because each
+sample carries its own technical signature. Look for that first:
+
+```{r pca-batch, fig.width=7, fig.height=5}
+DimPlot(seu, reduction = "pca", group.by = "sample", cols = sample_cols,
+        shuffle = TRUE) + ggtitle("PCA — before integration")
+```
+
+**Harmony** iteratively projects cells into a shared embedding, clustering them
+softly and shifting each cluster to remove the donor-associated component while
+leaving the rest alone.
+
+```{r harmony}
+set.seed(42)
+seu <- RunHarmony(seu, group.by.vars = "sample", reduction.use = "pca",
+                  dims.use = 1:n_dims, verbose = FALSE)
+```
+
+```{r harmony-compare, fig.width=11, fig.height=5}
+p1 <- DimPlot(seu, reduction = "pca", group.by = "sample", cols = sample_cols,
+              shuffle = TRUE) + ggtitle("Before") + NoLegend()
+p2 <- DimPlot(seu, reduction = "harmony", group.by = "sample", cols = sample_cols,
+              shuffle = TRUE) + ggtitle("After (Harmony)")
+p1 + p2
+```
+
+**A warning worth more than the method.** "The donors mix better" is also what
+over-correction looks like — and over-correction destroys real biology. Here the
+donors differ by developmental stage, so *some* separation between them is
+exactly the signal we are trying to study. Integrating by `sample` rather than by
+`group` is a deliberate choice to remove donor effects while preserving stage
+effects.
+
+So: can you check whether it worked?
+
+## 5.1 A test for over-correction
+
+> **Where this came from.** This check was not in the original version of this
+> practical. It came from watching an AI agent analyse this exact dataset with no
+> instructions — it invented this test, and it is better than the warning we used
+> to give you here. Materials improve from wherever the good idea comes.
+
+The argument has two halves, and you need both:
+
+1. **Did integration remove the donor effect?** Count clusters dominated by a
+   single donor, before and after. Should fall.
+2. **Did it also remove the biology?** Count clusters restricted to a single
+   developmental *stage*. Should **not** fall — because that is the signal.
+
+If clusters stop being donor-specific but stay stage-specific, and each of those
+stage-specific clusters now draws on all three donors of that stage, the
+remaining structure is developmental rather than technical.
+
+```{r overcorrection-check}
+# Self-contained: clusters both embeddings at a fixed resolution, so this does
+# not depend on the resolution you pick in Decision 3. About 3 seconds.
+check_res <- 0.4
+
+dominated <- function(clusters, by, thr = 0.9) {
+    tb <- table(clusters, by)
+    frac <- apply(tb, 1, max) / rowSums(tb)
+    c(clusters   = nrow(tb),
+      dominated  = sum(frac >= thr),
+      median_grp = median(apply(tb, 1, function(r) sum(r > 0))))
+}
+
+tmp <- FindNeighbors(seu, reduction = "pca", dims = 1:n_dims,
+                     graph.name = c("p_nn", "p_snn"), verbose = FALSE)
+tmp <- FindClusters(tmp, graph.name = "p_snn", resolution = check_res, verbose = FALSE)
+before <- Idents(tmp)
+
+tmp <- FindNeighbors(seu, reduction = "harmony", dims = 1:n_dims,
+                     graph.name = c("h_nn", "h_snn"), verbose = FALSE)
+tmp <- FindClusters(tmp, graph.name = "h_snn", resolution = check_res, verbose = FALSE)
+after <- Idents(tmp)
+
+rbind(`before integration` = dominated(before, seu$sample),
+      `after Harmony`      = dominated(after,  seu$sample))
+```
+
+Donor-dominated clusters should collapse towards zero. Now the other half — did
+the biology survive?
+
+```{r stage-restriction}
+tb <- table(after, seu$group)
+cat("clusters >=90% one developmental stage, after integration: ",
+    sum(apply(tb, 1, max) / rowSums(tb) >= 0.9), " of ", nrow(tb), "\n", sep = "")
+rm(tmp)
+```
+
+Donor structure gone, stage structure intact. Unlike "the UMAP looks better",
+that is a pair of numbers you can put in a methods section.
+
+```{r umap}
+seu <- RunUMAP(seu, reduction = "harmony", dims = 1:n_dims,
+               seed.use = 42, verbose = FALSE)
+```
+
+```{r umap-plots, fig.width=11, fig.height=5}
+p1 <- DimPlot(seu, reduction = "umap", group.by = "sample", cols = sample_cols,
+              shuffle = TRUE) + ggtitle("By donor")
+p2 <- DimPlot(seu, reduction = "umap", group.by = "group", cols = group_cols,
+              shuffle = TRUE) + ggtitle("By developmental stage")
+p1 + p2
+```
+
+Remember from the lecture: UMAP is for looking, not for measuring. Distances
+between clusters mean little, cluster areas mean nothing at all, and a cluster
+that looks isolated may not be.
+
+---
+
+# 6. Clustering
+
+`FindNeighbors()` builds a shared-nearest-neighbour graph; `FindClusters()` runs
+Louvain community detection on it. The `resolution` parameter controls
+granularity, and it has no correct value — it depends on the question.
+
+```{r neighbours}
+seu <- FindNeighbors(seu, reduction = "harmony", dims = 1:n_dims, verbose = FALSE)
+```
+
+```{r sweep}
+resolutions <- c(0.1, 0.2, 0.3, 0.4, 0.6, 0.8)
+set.seed(42)
+for (r in resolutions) seu <- FindClusters(seu, resolution = r, verbose = FALSE)
+
+sapply(resolutions, function(r)
+    length(unique(seu@meta.data[[paste0("SCT_snn_res.", r)]]))) |>
+    setNames(paste0("res ", resolutions))
+```
+
+```{r clustree, fig.width=10, fig.height=9}
+clustree(seu, prefix = "SCT_snn_res.")
+```
+
+Reading a clustree: resolution increases downward. **Thick straight edges** mean
+a cluster is stable — the same cells stay together as resolution rises.
+**Thin, criss-crossing edges** mean cells are being shuffled between clusters,
+which usually means you are splitting a continuous population that has no natural
+division.
+
+> ### <span style="color:#C0392B">DECISION 3 — how many clusters are real? *(11 min)*</span>
+>
+> Choose `selected_res`.
+>
+> 1. Find a cluster in the clustree that splits cleanly, and one that shuffles.
+>    What is the difference telling you?
+> 2. Look at the cluster counts above. Even at the **lowest** resolution you
+>    tried, you get about **12 clusters**. The published analysis of this tissue
+>    describes **8 cell types**. Resolution 0.1 is not "too coarse" — it already
+>    over-splits. What does that tell you about treating a cluster as a cell type?
+> 3. Resolutions 0.4 and 0.6 give the *same* number of clusters. Are they the
+>    same clustering? How would you check?
+> 4. **The hard one.** What evidence, other than the clustree, could tell you
+>    that a cluster is real? Note that you have not looked at a single gene yet.
+> 5. If your answer to (4) is "check the marker genes" — you will do exactly that
+>    in Practical 2, and `FindAllMarkers` will return markers for *whatever*
+>    clusters you hand it, including ones you invented by turning a dial. Does
+>    that worry you?
+
+```{r decision-3}
+selected_res <- 0.4   # <- YOUR VALUE
+
+Idents(seu) <- paste0("SCT_snn_res.", selected_res)
+seu$seurat_clusters <- Idents(seu)
+cat("clusters:", length(unique(seu$seurat_clusters)), "\n")
+```
+
+```{r umap-clusters, fig.width=11, fig.height=5}
+p1 <- DimPlot(seu, reduction = "umap", label = TRUE, repel = TRUE) +
+    NoLegend() + ggtitle(paste("Clusters (res =", selected_res, ")"))
+p2 <- DimPlot(seu, reduction = "umap", group.by = "group", cols = group_cols,
+              shuffle = TRUE) + ggtitle("Developmental stage")
+p1 + p2
+```
+
+```{r cluster-composition, fig.width=9, fig.height=5}
+seu@meta.data |>
+    count(seurat_clusters, group) |>
+    group_by(seurat_clusters) |>
+    mutate(prop = n / sum(n)) |>
+    ggplot(aes(seurat_clusters, prop, fill = group)) +
+    geom_col() +
+    scale_fill_manual(values = group_cols) +
+    labs(x = "cluster", y = "proportion of cluster", fill = NULL) +
+    theme_minimal()
+```
+
+> ### <span style="color:#2980B9">🤖 What the agent chose here</span>
+>
+> **Leiden at resolution 0.6**, against your Louvain at
+> `r if (exists("selected_res")) selected_res else 0.4`. Different algorithm,
+> different resolution, different cluster count — on identical data.
+>
+> Neither is wrong. But notice that nothing in either analysis reports *"this
+> number was a choice, and here is what it changes."* You only know because you
+> are holding both.
+
+Several clusters are almost entirely foetal. That is real developmental biology,
+not a batch effect — foetal heart runs transcriptional programmes that the adult
+heart has switched off. It is also a warning: a clustering algorithm that splits
+strongly on developmental stage will happily split on any other strong covariate,
+including a technical one.
+
+---
+
+# 7. Save
+
+```{r save, eval=FALSE}
+dir.create("results", showWarnings = FALSE)
+saveRDS(seu, "results/my_02_integrated_clustered.rds")
+```
+
+Practical 2 starts from the shared checkpoint, not from your file, so the two
+sessions stay in step:
+
+```{r p2-entry, eval=FALSE}
+seu <- readRDS(file.path(DATA, "checkpoints/02_integrated_clustered.rds"))
+```
+
+---
+
+# What you decided
+
+Write these down — we come back to them at the end of the day, and they are the
+shape of what your report needs to argue.
+
+| | Your value | Why |
+|---|---|---|
+| QC thresholds | | |
+| Number of PCs | | |
+| Clustering resolution | | |
+
+The pipeline ran identically whatever you chose. It would also have run
+identically if you had chosen badly. **Nothing in the output tells you which.**
+
+```{r session}
+sessionInfo()
+```

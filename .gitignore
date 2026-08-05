@@ -1,0 +1,20 @@
+# Data comes from Zenodo (10.5281/zenodo.21803240), never from git.
+data/
+
+# Rendered output and caches
+*_cache/
+*_files/
+/practicals/*.html
+/slides/*.html
+!docs/**
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# OS
+.DS_Store
+Thumbs.db

@@ -41,8 +41,10 @@ library(limma)
 options(future.globals.maxSize = 8 * 1024^3)
 
 # Resolve the data folder whether you knit from practicals/ or run
-# interactively with the repo root as your working directory.
-DATA <- if (dir.exists("data")) "data" else "../data"
+# interactively with the repo root as your working directory. The third
+# branch is the instructor's private authoring folder.
+DATA <- if (dir.exists("data")) "data" else
+        if (dir.exists("../data")) "../data" else "../dist"
 ```
 
 ```{r palettes}

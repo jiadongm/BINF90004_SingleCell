@@ -22,7 +22,10 @@ execute:
 suppressPackageStartupMessages({
     library(Seurat); library(ggplot2); library(dplyr); library(speckle)
 })
-D <- if (dir.exists("data")) "data" else "../data"
+# Resolve the data folder for every layout this deck is rendered from:
+# repo root, repo slides/, and the private authoring folder (../dist).
+D <- if (dir.exists("data")) "data" else
+     if (dir.exists("../data")) "../data" else "../dist"
 group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
 s2  <- readRDS(file.path(D, "checkpoints/02_integrated_clustered.rds"))
 key <- readRDS(file.path(D, "celltype_key.rds"))
@@ -186,6 +189,33 @@ Two things before you believe it:
    whether or not anything happened to it.
 :::
 
+## The test the agent never ran
+
+It reported the same fall — **64.4%** to **23.3%** — and called the change
+biological.
+
+::: {.fragment}
+It ran **no test of composition at all.** No propeller, no scCODA, no
+chi-square. Confirmed by searching the whole report: zero hits.
+:::
+
+::: {.fragment}
+<br>
+
+And unlike the differential-expression problem, **this limitation appears
+nowhere in its caveats.** It flagged the error it had a name for, and was
+silent about the one it didn't — which is exactly the failure you cannot catch
+by reading the caveats.
+:::
+
+::: {.notes}
+Moved here from L1 (Aug 2026), where it ran before the room had seen a
+composition test at all. Do not re-add it to L1.
+
+This is the asymmetry that makes the scorecard at the end land: two failures,
+only one of them self-reported.
+:::
+
 # Part 3 {.center}
 
 ## Differential expression {.center}
@@ -271,6 +301,35 @@ from
 
 ::: {.fragment}
 It never modelled donor. It has no way to tell them apart.
+:::
+
+## The agent knew this {background-color="#F5E9E9"}
+
+Buried in the caveats of the report from this morning:
+
+> "Wilcoxon on individual cells treats cells as replicates and **inflates
+> significance** — for anything you'd report, redo this as donor-level
+> pseudobulk."
+
+::: {.fragment}
+Its headline, same report: **"Adult vs. foetal cardiomyocytes: 5,967
+significant genes"** — with a volcano plot. Pseudobulk appears only as a
+heatmap; it was never used as a test.
+:::
+
+::: {.fragment}
+<br>
+
+**It knew the number was wrong. It led with it anyway.** The caveat and the
+number do not carry equal weight — a reader who skims takes away 5,967.
+:::
+
+::: {.notes}
+Moved here from L1 (Aug 2026). It used to run in the morning hook, before the
+room knew what pseudoreplication was; now it lands immediately after they have
+seen the control that should find nothing. Do not re-add it to L1.
+
+This is the thesis of the day. Say it slowly.
 :::
 
 ## Pseudobulk

@@ -1,8 +1,7 @@
 ---
 title: "Single-cell RNA-seq"
-subtitle: "From counts to clusters · BINF90004 Bioinformatics Case Studies"
-author: "Dr Jiadong Mao · Melbourne Integrative Genomics"
-date: today
+subtitle: "Module I: From counts to clusters"
+author: "Dr Jiadong Mao </br> Melbourne Integrative Genomics (MIG) </br> BINF90004 Bioinformatics Case Studies 2026"
 format:
   revealjs:
     theme: default
@@ -34,9 +33,7 @@ group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
 seu <- readRDS(file.path(D, "P1_start.rds"))
 ```
 
-# Part 1 {.center}
-
-## What does a bioinformatician do now? {.center}
+# Part 1 AI bioinformatician?
 
 ::: {.notes}
 12 minutes. This is not a technology showcase - it is the reason the practical
@@ -134,9 +131,6 @@ data?"* → any `hsa-let-7` family member
 :::
 :::
 
-::: {.fragment}
-On the hard ones it fails **about three in four**.
-:::
 
 <div style="font-size: 0.45em; color: #5f6b7a;">
 Questions verbatim from the public 5-problem preview, v11 (July 2026); answers
@@ -170,14 +164,13 @@ If asked why snakes: the data is anonymised, so the model has to identify
 three host species from metagenomic reads without looking up the accession.
 :::
 
-## So I gave it our dataset
+## Heart snRNA-seq data
 
-I uploaded the folder you are about to analyse. **No question, no instructions**
-— just the files.
+Uploaded data you are about to analyse with **no prompts**
 
 <br>
 
-100 minutes later, unattended: QC, integration, clustering, annotation,
+100 minutes later: QC, integration, clustering, annotation,
 composition, differential expression, four figures, four tables, a processed
 data object and a written report.
 
@@ -185,112 +178,76 @@ data object and a written report.
 Cost: **$7.09**.
 :::
 
+::: {.fragment}
+Mostly right decisions, some mistakes.
+:::
+
+
 ::: {.notes}
 Full scoring in prerun/SCORING_run_A0.md. Every quote from it in this deck is
 verbatim, but they are now spread across the morning rather than all shown
 here - see the teaser slide's note for where they land.
 :::
 
-## It got a lot right, and two things badly wrong
 
-<br>
 
-I will not tell you which yet — you cannot judge the calls it made until you
-know what the calls *are*.
+## What's AI agents' problem-solving style?
 
-::: {.fragment}
-<br>
-
-So we will do it the other way round. Each time you learn a step this morning,
-we will look at what the agent did with that step.
-
-**By the end of today you will be able to score it yourself.**
-:::
-
-::: {.notes}
-This replaces the old front-loaded critique block. Do not name the two failures
-here - composition testing and per-cell DE are both L2 material, and naming
-them now spends the payoff L2 builds to in "What the agent did, scored".
-
-The promise made here is kept four times: after Cells or nuclei?, after QC
-metrics, after Integration, and after Resolution.
-:::
-
-## But what about taste?
-
-**Chen, Zhao & Cohan (2026)** — *Measuring the Gap Between Human and LLM
+Chen, Zhao & Cohan (2026) — *Measuring the Gap Between Human and LLM
 Research Ideas*, arXiv:2607.01233
 
-They do not score ideas one at a time. They reconstruct the literature context
-for **11,683 papers** and compare the *distribution* of human vs LLM ideas.
+Took problems from **11,683 papers** and compared of human vs LLM ideas.
 
-::: {.fragment}
-**Any single LLM idea looks fine. The narrowness only shows up in aggregate.**
-:::
 
-## The gap
+
+## 
 
 | | Human | LLM |
 |---|---|---|
-| "Bridge-like" opportunities (connect A to B) | **12.1%** | **47–64%** |
+| 'Bridge-like' opportunities (connect A to B) | **12.1%** | **47–64%** |
 | Synthesis / unification methods | **5.1%** | **22–39%** |
-| Diversity (normalised entropy) | **0.926** | **0.737** |
+| Diversity | **0.926** | **0.737** |
 
 ::: {.fragment}
-And extended reasoning made it **worse** — one model went from 49.7% → **71.1%**
-bridge-like with thinking mode on.
+AI likes synthesising 
 :::
 
-## Why you should care
+## Why this difference?
 
-LLM research ideas cluster on:
+LLM training: synthesis / average of a huge corpus.
 
-- *"combine X with Y"*
-- *"apply method A to dataset B"*
+A LLM doesn't have a body, doesn't have a *perspective*: lacks diversity — how would AI evolve?
 
-<br>
+Overly conservative: an AI reviewer would reject most published papers.
 
-::: {.fragment}
-*"Apply a foundation model to spatial transcriptomics."*
 
-*"Integrate multi-omics with a graph neural network."*
 
-<br>
 
-Recognise those? Some of you have written them in a project proposal.
-:::
 
-::: {.notes}
-This is the moment the room goes quiet. Let it.
-Be fair to the paper: STEM-only corpus, one-shot prompting, reconstructed
-contexts lack tacit knowledge. The claim is "current LLMs, prompted this way,
-produce a narrow distribution" - NOT "AI cannot have taste."
-:::
+# Part 2 Single cell RNA-seq
 
-# Part 2 {.center}
-
-## Why single cell {.center}
-
-## Why RNA
+##
 
 DNA → **RNA** → protein
 
-- DNA is the same in (nearly) every cell
-- Protein is hard to measure at scale
+- DNA is (nearly) the same in every cell
+
 - RNA is what the cell is *doing right now*, and we can count it
+
+- Protein is hard to measure at scale
+
+
 
 ## Bulk vs single cell
 
 **Bulk RNA-seq**: average over millions of cells
 
 ::: {.fragment}
-A tissue that is 70% cardiomyocytes and 5% immune cells gives you a
-cardiomyocyte-flavoured average, and the immune biology is invisible.
+A tissue that is 70% cardiomyocytes: after averaging the immune signal might be invisible.
 :::
 
 ::: {.fragment}
-**scRNA-seq**: one measurement per cell. You can ask *which* cells, not just
-*how much*.
+**scRNA-seq**: one measurement per cell. Can ask what different subpopulations are doing.
 :::
 
 ## How it works

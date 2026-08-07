@@ -312,8 +312,16 @@ Not every droplet/barcode is a good cell:
 ## QC metrics
 
 ```{r qc-violin, fig.width=11, fig.height=4.5}
-VlnPlot(seu, features = c("nCount_RNA", "nFeature_RNA", "percent.mt"),
-        group.by = "sample", pt.size = 0, ncol = 3) &
+# Built panel-by-panel rather than with ncol=, so the two count metrics can be
+# log-scaled and percent.mt zoomed independently. coord_cartesian, not ylim():
+# ylim() would drop the ~1% of nuclei above 20% MT and redraw the violins
+# without them.
+qc <- VlnPlot(seu, features = c("nCount_RNA", "nFeature_RNA", "percent.mt"),
+              group.by = "sample", pt.size = 0, combine = FALSE)
+qc[[1]] <- qc[[1]] + scale_y_log10()
+qc[[2]] <- qc[[2]] + scale_y_log10()
+qc[[3]] <- qc[[3]] + coord_cartesian(ylim = c(0, 20))
+wrap_plots(qc, ncol = 3) &
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
 ```
 

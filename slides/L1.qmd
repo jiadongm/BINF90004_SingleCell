@@ -36,8 +36,12 @@ seu <- readRDS(file.path(D, "P1_start.rds"))
 # Part 1 AI bioinformatician?
 
 ::: {.notes}
-12 minutes. This is not a technology showcase - it is the reason the practical
+10 minutes. This is not a technology showcase - it is the reason the practical
 is built the way it is. Do not rush it.
+
+Part 1 is now about AI in science generally. The pre-run on OUR dataset is held
+back until QC in Part 3, where the mitochondrial quotes land on a metric the
+room has just seen. Do not trail it here.
 :::
 
 ## A show of hands
@@ -158,38 +162,11 @@ got wrong. Worth saying out loud - it is the same "check what is actually
 being claimed" move the whole lecture is about.
 
 Do not spend the 1-2-of-5 brittleness finding here - it is the whole of
-"Would it do the same thing twice?" at the end of Part 5.
+"Would it do the same thing twice?" at the end of Part 4.
 
 If asked why snakes: the data is anonymised, so the model has to identify
 three host species from metagenomic reads without looking up the accession.
 :::
-
-## Heart snRNA-seq data
-
-Uploaded data you are about to analyse with **no prompts**
-
-<br>
-
-100 minutes later: QC, integration, clustering, annotation,
-composition, differential expression, four figures, four tables, a processed
-data object and a written report.
-
-::: {.fragment}
-Cost: **$7.09**.
-:::
-
-::: {.fragment}
-Mostly right decisions, some mistakes.
-:::
-
-
-::: {.notes}
-Full scoring in prerun/SCORING_run_A0.md. Every quote from it in this deck is
-verbatim, but they are now spread across the morning rather than all shown
-here - see the teaser slide's note for where they land.
-:::
-
-
 
 ## What's AI agents' problem-solving style?
 
@@ -228,27 +205,18 @@ Overly conservative: an AI reviewer would reject most published papers.
 
 ##
 
-DNA → **RNA** → protein
+Simplified central dogma: DNA → **RNA** → protein
 
 - DNA is (nearly) the same in every cell
 
-- RNA is what the cell is *doing right now*, and we can count it
+  - scDNA-seq is niche, e.g. evolution of cancer clones
 
-- Protein is hard to measure at scale
+- scProt-seq is hard to scale: can measure many cells, or many proteins, but not both
+
+- RNA is more transient, but reflects cell activity well
 
 
 
-## Bulk vs single cell
-
-**Bulk RNA-seq**: average over millions of cells
-
-::: {.fragment}
-A tissue that is 70% cardiomyocytes: after averaging the immune signal might be invisible.
-:::
-
-::: {.fragment}
-**scRNA-seq**: one measurement per cell. Can ask what different subpopulations are doing.
-:::
 
 ## How it works
 
@@ -281,58 +249,9 @@ A tissue that is 70% cardiomyocytes: after averaging the immune signal might be 
 :::
 
 ::: {.fragment}
-Adult heart muscle does not dissociate nicely. **Today's data is snRNA-seq** —
-which is why `percent.mt` behaved the way it did ten minutes ago.
-:::
+Does cytoplasmic RNA matter? 
 
-## The first thing it said {.center}
-
-Back to the agent I handed this dataset to. **This was the opening of its
-report** — before any of you had a word for it.
-
-> "mitochondrial fractions are uniformly low (donor medians 0.10–1.78%) **and**
-> so are ribosomal fractions (0.4–1.3%). That combination points to a
-> **single-nucleus prep** rather than whole cells, which changes how you'd handle
-> ambient RNA."
-
-::: {.fragment}
-Nobody told it this was snRNA-seq. **It worked that out from the data**, and set
-its mitochondrial threshold accordingly.
-:::
-
-## The matrix
-
-```{r matrix-shape}
-cat("genes:", nrow(seu), "\n")
-cat("nuclei:", ncol(seu), "\n")
-m <- SeuratObject::LayerData(seu, assay = "RNA", layer = "counts")
-cat("zeros:", round(100 * (1 - length(m@x) / (nrow(m) * ncol(m))), 1), "%\n")
-```
-
-<br>
-
-High-dimensional, and **overwhelmingly zero**. Some of those zeros are
-"not expressed"; some are "expressed but not captured". You cannot tell which.
-
-# Part 3 {.center}
-
-## The workflow {.center}
-
-## Three stages
-
-**Raw data processing** → align reads, produce the count matrix
-
-**Pre-processing** → QC, normalise, select features, correct batch, reduce
-dimensions
-
-**Downstream analysis** → cluster, annotate, test hypotheses
-
-<br>
-
-Visualisation throughout. We start at stage 2 — the count matrix is given.
-
-::: {.notes}
-Luecken & Theis 2019 figure. Reuse from the 2025 deck.
+Yes. Eg 'Single-Nucleus RNA-Seq Is Not Suitable for Detection of Microglial Activation Genes in Humans' (Thrupp et al., 2020; Cell Reports)
 :::
 
 ## Today's dataset
@@ -350,9 +269,38 @@ Luecken & Theis 2019 figure. Reuse from the 2025 deck.
 the only number that matters.
 :::
 
-# Part 4 {.center}
+## The matrix
 
-## Pre-processing {.center}
+```{r matrix-shape}
+cat("genes:", nrow(seu), "\n")
+cat("nuclei:", ncol(seu), "\n")
+m <- SeuratObject::LayerData(seu, assay = "RNA", layer = "counts")
+cat("zeros:", round(100 * (1 - length(m@x) / (nrow(m) * ncol(m))), 1), "%\n")
+```
+
+<br>
+
+High-dimensional, and **overwhelmingly zero**. Some of those zeros are
+"not expressed"; some are "expressed but not captured". You cannot tell which.
+
+# Part 3 Pre-processing
+
+## Three stages
+
+**Raw data processing** → align reads, produce the count matrix
+
+**Pre-processing** → QC, normalise, select features, correct batch, reduce
+dimensions
+
+**Downstream analysis** → cluster, annotate, test hypotheses
+
+<br>
+
+Visualisation throughout. We start at stage 2 — the count matrix is given.
+
+::: {.notes}
+Luecken & Theis 2019 figure. Reuse from the 2025 deck.
+:::
 
 ## Quality control
 
@@ -379,10 +327,52 @@ VlnPlot(seu, features = c("nCount_RNA", "nFeature_RNA", "percent.mt"),
 **Look at the donors, not just the distribution.** They differ, and a single
 global threshold lands differently on each.
 
+## I gave this dataset to an AI agent
+
+Uploaded the data you are about to analyse with **no prompts**
+
+<br>
+
+100 minutes later: QC, integration, clustering, annotation,
+composition, differential expression, four figures, four tables, a processed
+data object and a written report.
+
+::: {.fragment}
+Cost: **$7.09**.
+:::
+
+::: {.fragment}
+Mostly right decisions, some mistakes.
+:::
+
+::: {.notes}
+Full scoring in prerun/SCORING_run_A0.md. Every quote from it in this deck is
+verbatim. They are spread across the morning rather than shown together: this
+slide and the next two here at QC, then one after Integration and one after
+Resolution.
+
+This is the first time the pre-run is mentioned all morning. Part 1 was about
+AI in science generally - do not pre-empt this there.
+:::
+
+## The first thing it said {.center}
+
+You have just met `percent.mt`. **This was the opening of its report**, written
+before it ran anything.
+
+> "mitochondrial fractions are uniformly low (donor medians 0.10–1.78%) **and**
+> so are ribosomal fractions (0.4–1.3%). That combination points to a
+> **single-nucleus prep** rather than whole cells, which changes how you'd handle
+> ambient RNA."
+
+::: {.fragment}
+Nobody told it this was snRNA-seq. **It worked that out from the data** — from
+the metric you are looking at — and set its mitochondrial threshold accordingly.
+:::
+
 ## I had predicted it would get that wrong
 
-Now you know what `percent.mt` is, here is the threshold the agent chose — and
-the one I bet it would choose.
+Here is the threshold it chose — and the one I bet it would choose.
 
 I expected `percent.mt < 5` — the whole-cell default from every tutorial.
 
@@ -531,9 +521,7 @@ It designed a test to tell correct integration from over-correction. Your
 practical only warns you that the difference exists.
 :::
 
-# Part 5 {.center}
-
-## Clustering {.center}
+# Part 4 Clustering
 
 ## Graph-based clustering
 

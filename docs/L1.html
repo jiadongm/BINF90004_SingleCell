@@ -9,8 +9,7 @@
 <link href="L1_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
   <meta name="generator" content="quarto-1.9.37">
 
-  <meta name="author" content="Dr Jiadong Mao · Melbourne Integrative Genomics">
-  <meta name="dcterms.date" content="2026-08-05">
+  <meta name="author" content="Dr Jiadong Mao  Melbourne Integrative Genomics (MIG)  BINF90004 Bioinformatics Case Studies 2026">
   <title>Single-cell RNA-seq</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -134,27 +133,23 @@
 
 <section id="title-slide" class="quarto-title-block center">
   <h1 class="title">Single-cell RNA-seq</h1>
-  <p class="subtitle">From counts to clusters · BINF90004 Bioinformatics Case Studies</p>
+  <p class="subtitle">Module I: From counts to clusters</p>
 
 <div class="quarto-title-authors">
 <div class="quarto-title-author">
 <div class="quarto-title-author-name">
-Dr Jiadong Mao · Melbourne Integrative Genomics 
+Dr Jiadong Mao <br> Melbourne Integrative Genomics (MIG) <br> BINF90004 Bioinformatics Case Studies 2026 
 </div>
 </div>
 </div>
 
-  <p class="date">2026-08-05</p>
 </section>
 <section>
-<section id="part-1" class="title-slide slide level1 center">
-<h1>Part 1</h1>
-
-</section>
-<section id="what-does-a-bioinformatician-do-now" class="slide level2 center">
-<h2>What does a bioinformatician do now?</h2>
+<section id="part-1-ai-bioinformatician" class="title-slide slide level1 center">
+<h1>Part 1 AI bioinformatician?</h1>
 <aside class="notes">
-<p>12 minutes. This is not a technology showcase - it is the reason the practical is built the way it is. Do not rush it.</p>
+<p>10 minutes. This is not a technology showcase - it is the reason the practical is built the way it is. Do not rush it.</p>
+<p>Part 1 is now about AI in science generally. The pre-run on OUR dataset is held back until QC in Part 3, where the mitochondrial quotes land on a metric the room has just seen. Do not trail it here.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
@@ -202,7 +197,7 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 </section>
 <section id="it-is-genuinely-good" class="slide level2">
 <h2>It is genuinely good</h2>
-<p><strong>BioMysteryBench</strong> — 99 expert-written questions on real datasets, objective ground truth</p>
+<p><strong>BioMysteryBench</strong> — expert-written questions on real datasets, objective ground truth. You are given the data files and a question; looking the source dataset up is against the rules.</p>
 <table class="caption-top">
 <thead>
 <tr class="header">
@@ -212,21 +207,23 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 </thead>
 <tbody>
 <tr class="odd">
-<td>Human-solvable tasks (76)</td>
+<td>Human-solvable tasks</td>
 <td><strong>~77%</strong></td>
 </tr>
 <tr class="even">
-<td>Human-<em>difficult</em> tasks (23)</td>
+<td>Human-<em>difficult</em> tasks</td>
 <td><strong>~23.5%</strong></td>
 </tr>
 </tbody>
 </table>
 <p>Models solved some problems expert panels could not.</p>
-<div class="fragment">
-<p>One of the actual tasks: <em>“identify which human organ this scRNA-seq dataset came from.”</em></p>
+<div style="font-size: 0.5em; color: #5f6b7a; margin-top: 0.8em;">
+<p>Anthropic (2026), <em>Evaluating Claude’s bioinformatics research capabilities with BioMysteryBench</em>. Problems: <a href="https://huggingface.co/datasets/Anthropic/BioMysteryBench-preview" class="uri">https://huggingface.co/datasets/Anthropic/BioMysteryBench-preview</a> (CC-BY-4.0)</p>
 </div>
 <aside class="notes">
-<p>Re-check these numbers before delivery - model versions move. See PLAN.md 3.5.</p>
+<p>Accuracy figures are Anthropic’s April 2026 release, measured on the original 99-problem set (76 solvable / 23 hard). PLAN.md attributes them to Opus 4.6; some secondary coverage attributes the same two numbers to Sonnet 4.6 - the source page presents them as a graph, so CHECK THIS before delivery.</p>
+<p>The benchmark was revised in July 2026 (v11): 99 -&gt; 90 problems, 73 solvable / 17 hard. Nine were withdrawn after a June audit found the answer keys wrong or the question underivable from the data provided. That is worth a sentence out loud - the benchmark’s own ground truth needed checking too.</p>
+<p>See PLAN.md 3.5.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
@@ -239,16 +236,32 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
           display:block!important;
       }</style></aside>
 </section>
-<section id="so-i-gave-it-our-dataset" class="slide level2">
-<h2>So I gave it our dataset</h2>
-<p>I uploaded the folder you are about to analyse. <strong>No question, no instructions</strong> — just the files.</p>
-<p><br></p>
-<p>100 minutes later, unattended: QC, integration, clustering, annotation, composition, differential expression, four figures, four tables, a processed data object and a written report.</p>
-<div class="fragment">
-<p>Cost: <strong>$7.09</strong>.</p>
+<section id="what-the-questions-actually-look-like" class="slide level2">
+<h2>What the questions actually look like</h2>
+<div class="columns">
+<div class="column" style="width:50%;">
+<p><strong>Mostly gets right</strong> — solves ~77%</p>
+<div style="font-size: 0.72em; line-height: 1.25;">
+<p><em>“What organism does this crystal structure belong to?”</em> → <code>Homo sapiens</code></p>
+<p><em>“What bacteria is found in this sequenced dataset?”</em> → <code>Bacillus licheniformis</code></p>
+<p><em>“Identify the transcription factor whose binding sites these peaks represent.”</em> → <code>CTCF</code></p>
+</div>
+</div><div class="column" style="width:50%;">
+<p><strong>Mostly gets wrong</strong> — solves ~23.5%</p>
+<div style="font-size: 0.72em; line-height: 1.25;">
+<p><em>“How many tissue groups are collected, and from how many different species?”</em> (metagenomes, non-human hosts) → 2 tissues, 3 snake species</p>
+<p><em>“What is the most common microRNA associated with the genes given in this data?”</em> → any <code>hsa-let-7</code> family member</p>
+</div>
+</div></div>
+<div style="font-size: 0.45em; color: #5f6b7a;">
+<p>Questions verbatim from the public 5-problem preview, v11 (July 2026); answers are the published rubrics. Which individual questions Claude failed is not published — only the per-split rates.</p>
 </div>
 <aside class="notes">
-<p>Full scoring in prerun/SCORING_run_A0.md. Everything on the next slides is quoted verbatim from its report.</p>
+<p>The point of this slide is the shape of the questions, not the answers. Every one is “here are the files, tell me what they are” - no method is specified, so the model has to choose the whole pipeline. That is exactly the position you are in this afternoon.</p>
+<p>Note what separates the two columns. The left ones have a single determinate answer reachable by one canonical route: BLAST it, motif-scan it. The right ones need several correct choices chained together, and each has a count or a family in the answer - more places to be almost right. This is the same gap you will see in the pre-run: it does the standard move well and the judgement calls invisibly.</p>
+<p>Be precise if asked: the right-hand column is the <em>class</em> it mostly fails, not two questions it is known to have failed. Anthropic publishes the split rates, not per-question results, so nobody can say which individual ones it got wrong. Worth saying out loud - it is the same “check what is actually being claimed” move the whole lecture is about.</p>
+<p>Do not spend the 1-2-of-5 brittleness finding here - it is the whole of “Would it do the same thing twice?” at the end of Part 4.</p>
+<p>If asked why snakes: the data is anonymised, so the model has to identify three host species from metagenomic reads without looking up the accession.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
@@ -261,124 +274,13 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
           display:block!important;
       }</style></aside>
 </section>
-<section id="the-first-thing-it-said" class="slide level2 center">
-<h2>The first thing it said</h2>
-<blockquote>
-<p>“mitochondrial fractions are uniformly low (donor medians 0.10–1.78%) <strong>and</strong> so are ribosomal fractions (0.4–1.3%). That combination points to a <strong>single-nucleus prep</strong> rather than whole cells, which changes how you’d handle ambient RNA.”</p>
-</blockquote>
-<div class="fragment">
-<p>Nobody told it this was snRNA-seq. <strong>It worked that out from the data</strong>, and set its mitochondrial threshold accordingly.</p>
-</div>
+<section id="whats-ai-agents-problem-solving-style" class="slide level2">
+<h2>What’s AI agents’ problem-solving style?</h2>
+<p>Chen, Zhao &amp; Cohan (2026) — <em>Measuring the Gap Between Human and LLM Research Ideas</em>, arXiv:2607.01233</p>
+<p>Took problems from <strong>11,683 papers</strong> and compared of human vs LLM ideas.</p>
 </section>
-<section id="i-had-predicted-it-would-get-that-wrong" class="slide level2">
-<h2>I had predicted it would get that wrong</h2>
-<p>I expected <code>percent.mt &lt; 5</code> — the whole-cell default from every tutorial.</p>
-<div class="fragment">
-<p><br></p>
-<p>I had also written down the “expert” rebuttal:</p>
-<blockquote>
-<p><em>Heart is mitochondria-rich. Cardiomyocytes are packed with mitochondria. An aggressive MT filter deletes the cell type the study is about.</em></p>
-</blockquote>
-</div>
-<div class="fragment">
-<p><br></p>
-<p><strong>That reasoning is also wrong.</strong> Median <code>percent.mt</code> here is 0.25%, and cardiomyocytes have the <em>lowest</em> of any cell type — because these are nuclei and the cytoplasm has been washed away.</p>
-<p><strong>Its reasoning beat mine.</strong></p>
-</div>
-<aside class="notes">
-<p>Own this. Saying “I got this wrong and the machine didn’t” is the most persuasive thing you can do in this room, and it is true.</p>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
-</section>
-<section id="it-also-did-something-our-practical-does-not" class="slide level2">
-<h2>It also did something our practical does not</h2>
-<p>On whether integration destroyed the biology:</p>
-<blockquote>
-<p>“Clustering on unintegrated PCA gave clusters that were stage-exclusive <em>and</em> donor-exclusive — 7 clusters were ≥90% a single donor. That can’t distinguish development from batch. After Harmony: <strong>0</strong> donor-dominated clusters, while <strong>10</strong> clusters stay stage-restricted. Since those now draw from all donors within a stage, the restriction is developmental.”</p>
-</blockquote>
-<div class="fragment">
-<p>It designed a test to tell correct integration from over-correction. Your practical only warns you that the difference exists.</p>
-</div>
-</section>
-<section id="and-then-in-its-caveats" class="slide level2 center">
-<h2>And then, in its caveats</h2>
-<blockquote>
-<p>“Wilcoxon on individual cells treats cells as replicates and <strong>inflates significance</strong> — for anything you’d report, redo this as donor-level pseudobulk with DESeq2 at n=3 per stage.”</p>
-</blockquote>
-<div class="fragment">
-<p>That is completely correct. We will spend twenty minutes on exactly this point after lunch.</p>
-</div>
-</section>
-<section id="but-this-is-its-headline" class="slide level2" data-background-color="#F5E9E9">
-<h2>But this is its headline</h2>
-<blockquote>
-<p>“Adult vs.&nbsp;fetal cardiomyocytes: <strong>5,967 significant genes</strong>”</p>
-</blockquote>
-<p><br></p>
-<p>With a volcano plot. Pseudobulk appears in the deliverable only as a <em>heatmap</em> — it was never used as a test.</p>
-<div class="fragment">
-<p><br></p>
-<p><strong>It knew the number was wrong. It led with it anyway.</strong></p>
-</div>
-</section>
-<section id="the-failure-is-not-ignorance" class="slide level2 center">
-<h2>The failure is not ignorance</h2>
-<blockquote>
-<p>The caveat and the number do not carry equal weight.</p>
-<p>A reader who skims takes away 5,967. Only someone who <strong>already knows what to look for</strong> reads to the end and discounts it.</p>
-</blockquote>
-<aside class="notes">
-<p>This is the thesis of the day. Say it slowly.</p>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
-</section>
-<section id="and-the-one-it-did-not-mention" class="slide level2">
-<h2>And the one it did not mention</h2>
-<p>It reports cardiomyocytes falling from <strong>64.4%</strong> of cells to <strong>23.3%</strong> and calls the change biological.</p>
-<div class="fragment">
-<p>It ran <strong>no statistical test of composition at all.</strong> No propeller, no scCODA, no chi-square. Nothing.</p>
-</div>
-<div class="fragment">
-<p><br></p>
-<p>And unlike the differential expression problem, <strong>that limitation appears nowhere in its caveats.</strong></p>
-</div>
-</section>
-<section id="the-asymmetry" class="slide level2 center">
-<h2>The asymmetry</h2>
-<blockquote>
-<p>It flagged the error it had a name for.</p>
-<p>It was silent about the one it didn’t.</p>
-<p><strong>Which is exactly the failure you cannot catch by reading the caveats.</strong></p>
-</blockquote>
-</section>
-<section id="but-what-about-taste" class="slide level2">
-<h2>But what about taste?</h2>
-<p><strong>Chen, Zhao &amp; Cohan (2026)</strong> — <em>Measuring the Gap Between Human and LLM Research Ideas</em>, arXiv:2607.01233</p>
-<p>They do not score ideas one at a time. They reconstruct the literature context for <strong>11,683 papers</strong> and compare the <em>distribution</em> of human vs LLM ideas.</p>
-<div class="fragment">
-<p><strong>Any single LLM idea looks fine. The narrowness only shows up in aggregate.</strong></p>
-</div>
-</section>
-<section id="the-gap" class="slide level2">
-<h2>The gap</h2>
+<section id="section" class="slide level2">
+<h2></h2>
 <table class="caption-top">
 <colgroup>
 <col style="width: 33%">
@@ -394,7 +296,7 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 </thead>
 <tbody>
 <tr class="odd">
-<td>“Bridge-like” opportunities (connect A to B)</td>
+<td>‘Bridge-like’ opportunities (connect A to B)</td>
 <td><strong>12.1%</strong></td>
 <td><strong>47–64%</strong></td>
 </tr>
@@ -404,123 +306,38 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 <td><strong>22–39%</strong></td>
 </tr>
 <tr class="odd">
-<td>Diversity (normalised entropy)</td>
+<td>Diversity</td>
 <td><strong>0.926</strong></td>
 <td><strong>0.737</strong></td>
 </tr>
 </tbody>
 </table>
 <div class="fragment">
-<p>And extended reasoning made it <strong>worse</strong> — one model went from 49.7% → <strong>71.1%</strong> bridge-like with thinking mode on.</p>
+<p>AI likes synthesising</p>
 </div>
 </section>
-<section id="why-you-should-care" class="slide level2">
-<h2>Why you should care</h2>
-<p>LLM research ideas cluster on:</p>
-<ul>
-<li><em>“combine X with Y”</em></li>
-<li><em>“apply method A to dataset B”</em></li>
-</ul>
-<p><br></p>
-<div class="fragment">
-<p><em>“Apply a foundation model to spatial transcriptomics.”</em></p>
-<p><em>“Integrate multi-omics with a graph neural network.”</em></p>
-<p><br></p>
-<p>Recognise those? Some of you have written them in a project proposal.</p>
-</div>
-<aside class="notes">
-<p>This is the moment the room goes quiet. Let it. Be fair to the paper: STEM-only corpus, one-shot prompting, reconstructed contexts lack tacit knowledge. The claim is “current LLMs, prompted this way, produce a narrow distribution” - NOT “AI cannot have taste.”</p>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
-</section>
-<section id="would-it-do-the-same-thing-twice" class="slide level2">
-<h2>Would it do the same thing twice?</h2>
-<p>From Anthropic’s own evaluation, on the hard problems:</p>
-<blockquote>
-<p>nearly half of the wins are paths the model <em>stumbles onto</em> rather than reproduces</p>
-</blockquote>
-<div class="fragment">
-<p><br></p>
-<p><strong>I have run this once.</strong> So I cannot tell you whether a second run picks the same thresholds, the same resolution, or notices the nuclei at all.</p>
-<p>Neither could you, from a paper that reports one run.</p>
-</div>
-<aside class="notes">
-<p>HONEST STATUS: n = 1. Do NOT claim run-to-run variance until A1-A3 are done - see prerun/SCORING_run_A0.md. If you do get the repeat runs before the session, replace this slide with the actual comparison; it is much stronger.</p>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
-</section>
-<section id="so-what-is-left-for-you" class="slide level2">
-<h2>So what is left for you?</h2>
-<ul>
-<li class="fragment">Not knowing more statistics than it does. It diagnosed pseudoreplication unprompted.</li>
-<li class="fragment">Not knowing more biology. It identified the assay from the data.</li>
-<li class="fragment"><strong>Reading to the end.</strong> Noticing which number went in the headline.</li>
-<li class="fragment"><strong>Noticing the test that was never run</strong> — and never mentioned.</li>
-</ul>
-<div class="fragment">
-<p><br></p>
-<p>Every one of those requires you to already understand the method well enough to know what <em>should</em> have been there.</p>
-</div>
-</section>
-<section id="the-deal-for-today" class="slide level2">
-<h2>The deal for today</h2>
-<p>You will make <strong>five decisions</strong> this afternoon that no tool makes for you:</p>
-<ol type="1">
-<li>Where to set your quality thresholds</li>
-<li>How many principal components to keep</li>
-<li>How finely to cluster</li>
-<li>What cell type a cluster is</li>
-<li>How to test for differential expression</li>
-</ol>
-<div class="fragment">
-<p>Each time: choose, then <strong>justify it to the person next to you</strong>.</p>
-<p>That is the assessable skill, and it is what your report is marked on.</p>
-</div>
+<section id="why-this-difference" class="slide level2">
+<h2>Why this difference?</h2>
+<p>LLM training: synthesis / average of a huge corpus.</p>
+<p>A LLM doesn’t have a body, doesn’t have a <em>perspective</em>: lacks diversity — how would AI evolve?</p>
+<p>Overly conservative: an AI reviewer would reject most published papers.</p>
 </section></section>
 <section>
-<section id="part-2" class="title-slide slide level1 center">
-<h1>Part 2</h1>
+<section id="part-2-single-cell-rna-seq" class="title-slide slide level1 center">
+<h1>Part 2 Single cell RNA-seq</h1>
 
 </section>
-<section id="why-single-cell" class="slide level2 center">
-<h2>Why single cell</h2>
-</section>
-<section id="why-rna" class="slide level2">
-<h2>Why RNA</h2>
-<p>DNA → <strong>RNA</strong> → protein</p>
+<section id="section-1" class="slide level2">
+<h2></h2>
+<p>Simplified central dogma: DNA → <strong>RNA</strong> → protein</p>
 <ul>
-<li>DNA is the same in (nearly) every cell</li>
-<li>Protein is hard to measure at scale</li>
-<li>RNA is what the cell is <em>doing right now</em>, and we can count it</li>
+<li><p>DNA is (nearly) the same in every cell</p>
+<ul>
+<li>scDNA-seq is niche, e.g.&nbsp;evolution of cancer clones</li>
+</ul></li>
+<li><p>scProt-seq is hard to scale: can measure many cells, or many proteins, but not both</p></li>
+<li><p>RNA is more transient, but reflects cell activity well</p></li>
 </ul>
-</section>
-<section id="bulk-vs-single-cell" class="slide level2">
-<h2>Bulk vs single cell</h2>
-<p><strong>Bulk RNA-seq</strong>: average over millions of cells</p>
-<div class="fragment">
-<p>A tissue that is 70% cardiomyocytes and 5% immune cells gives you a cardiomyocyte-flavoured average, and the immune biology is invisible.</p>
-</div>
-<div class="fragment">
-<p><strong>scRNA-seq</strong>: one measurement per cell. You can ask <em>which</em> cells, not just <em>how much</em>.</p>
-</div>
 </section>
 <section id="how-it-works" class="slide level2">
 <h2>How it works</h2>
@@ -553,53 +370,9 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 </ul>
 </div></div>
 <div class="fragment">
-<p>Adult heart muscle does not dissociate nicely. <strong>Today’s data is snRNA-seq</strong> — which is why <code>percent.mt</code> behaved the way it did ten minutes ago.</p>
+<p>Does cytoplasmic RNA matter?</p>
+<p>Yes. Eg ‘Single-Nucleus RNA-Seq Is Not Suitable for Detection of Microglial Activation Genes in Humans’ (Thrupp et al., 2020; Cell Reports)</p>
 </div>
-</section>
-<section id="the-matrix" class="slide level2">
-<h2>The matrix</h2>
-<div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code>genes: 18953 </code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>nuclei: 7999 </code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>zeros: 85 %</code></pre>
-</div>
-</div>
-<p><br></p>
-<p>High-dimensional, and <strong>overwhelmingly zero</strong>. Some of those zeros are “not expressed”; some are “expressed but not captured”. You cannot tell which.</p>
-</section></section>
-<section>
-<section id="part-3" class="title-slide slide level1 center">
-<h1>Part 3</h1>
-
-</section>
-<section id="the-workflow" class="slide level2 center">
-<h2>The workflow</h2>
-</section>
-<section id="three-stages" class="slide level2">
-<h2>Three stages</h2>
-<p><strong>Raw data processing</strong> → align reads, produce the count matrix</p>
-<p><strong>Pre-processing</strong> → QC, normalise, select features, correct batch, reduce dimensions</p>
-<p><strong>Downstream analysis</strong> → cluster, annotate, test hypotheses</p>
-<p><br></p>
-<p>Visualisation throughout. We start at stage 2 — the count matrix is given.</p>
-<aside class="notes">
-<p>Luecken &amp; Theis 2019 figure. Reuse from the 2025 deck.</p>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
 </section>
 <section id="todays-dataset" class="slide level2">
 <h2>Today’s dataset</h2>
@@ -630,34 +403,142 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 </tr>
 </tbody>
 </table>
-<div class="fragment">
-<p><strong>Nine donors.</strong> Remember that number — in the second lecture it turns out to be the only number that matters.</p>
+</section>
+<section id="the-matrix" class="slide level2">
+<h2>The matrix</h2>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>8 x 20 sparse Matrix of class "dgCMatrix"</code></pre>
 </div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                                                   
+MIR1302-2HG . . . . . . . . . . . . . . . . . . . .
+FAM87B      . . . . . . . . . . . . . . . . . . . .
+LINC00115   . 1 . . . . . . . . . . . . . . . . . .
+FAM41C      . . . . . . . . . . . . . . . . . . . .
+LINC02593   . . . . . . . . . . . . . . . . . . . .
+SAMD11      . . . . . . . . . . . . . . . . 1 . . .
+NOC2L       . 1 . . . 1 . . . . . . . . . . . . 1 .
+KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>genes: 18953 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>nuclei: 7999 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>zeros: 85 %</code></pre>
+</div>
+</div>
+<p><br></p>
+<p>High-dimensional, and <strong>overwhelmingly zero</strong>. Some of those zeros are ‘not expressed’; some are ‘expressed but not captured’; cannot tell which.</p>
 </section></section>
 <section>
-<section id="part-4" class="title-slide slide level1 center">
-<h1>Part 4</h1>
+<section id="part-3-pre-processing" class="title-slide slide level1 center">
+<h1>Part 3 Pre-processing</h1>
 
 </section>
-<section id="pre-processing" class="slide level2 center">
-<h2>Pre-processing</h2>
+<section id="three-stages" class="slide level2">
+<h2>Three stages</h2>
+<p><strong>Raw data processing</strong> → align reads, produce the count matrix</p>
+<p><strong>Pre-processing</strong> → QC, normalise, select features, correct batch, reduce dimensions</p>
+<p><strong>Downstream analysis</strong> → cluster, annotate, test hypotheses</p>
+<p><br></p>
+<p>Visualisation throughout. We start at stage 2 — the count matrix is given.</p>
+<aside class="notes">
+<p>Luecken &amp; Theis 2019 figure. Reuse from the 2025 deck.</p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="quality-control" class="slide level2">
 <h2>Quality control</h2>
-<p>Not every barcode is a good cell:</p>
+<p>Not every droplet/barcode is a good cell:</p>
 <ul>
 <li><strong>Empty droplets</strong> — ambient RNA only; low counts, low gene number</li>
 <li><strong>Dying cells</strong> — membrane compromised, cytoplasmic RNA leaks out, mitochondrial fraction rises</li>
-<li><strong>Doublets</strong> — two cells, one barcode; look like a chimera</li>
+<li><strong>Doublets</strong> — two cells, one barcode (hardest to detect)</li>
 </ul>
-<div class="fragment">
-<p>Tools exist for each (CellBender, scDblFinder, DoubletFinder). None of them removes the need to choose.</p>
-</div>
 </section>
 <section id="qc-metrics" class="slide level2">
 <h2>QC metrics</h2>
 
 <img data-src="L1_files/figure-revealjs/qc-violin-1.png" width="1056" class="r-stretch"><p><strong>Look at the donors, not just the distribution.</strong> They differ, and a single global threshold lands differently on each.</p>
+</section>
+<section id="i-gave-this-dataset-to-an-ai-agent" class="slide level2">
+<h2>I gave this dataset to an AI agent</h2>
+<p>Uploaded the data you are about to analyse with <strong>no prompts</strong></p>
+<p><br></p>
+<p>100 minutes later: QC, integration, clustering, annotation, composition, differential expression, four figures, four tables, a processed data object and a written report.</p>
+<div class="fragment">
+<p>Cost: <strong>$7.09</strong>.</p>
+</div>
+<div class="fragment">
+<p>Mostly right decisions, some mistakes.</p>
+</div>
+<aside class="notes">
+<p>Full scoring in prerun/SCORING_run_A0.md. Every quote from it in this deck is verbatim. They are spread across the morning rather than shown together: this slide and the next two here at QC, then one after Integration and one after Resolution.</p>
+<p>This is the first time the pre-run is mentioned all morning. Part 1 was about AI in science generally - do not pre-empt this there.</p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="the-first-thing-it-said" class="slide level2 center">
+<h2>The first thing it said</h2>
+<p>You have just met <code>percent.mt</code>. <strong>This was the opening of its report</strong>, written before it ran anything.</p>
+<blockquote>
+<p>“mitochondrial fractions are uniformly low (donor medians 0.10–1.78%) <strong>and</strong> so are ribosomal fractions (0.4–1.3%). That combination points to a <strong>single-nucleus prep</strong> rather than whole cells, which changes how you’d handle ambient RNA.”</p>
+</blockquote>
+<div class="fragment">
+<p>Nobody told it this was snRNA-seq. <strong>It worked that out from the data</strong> — from the metric you are looking at — and set its mitochondrial threshold accordingly.</p>
+</div>
+</section>
+<section id="i-had-predicted-it-would-get-that-wrong" class="slide level2">
+<h2>I had predicted it would get that wrong</h2>
+<p>Here is the threshold it chose — and the one I bet it would choose.</p>
+<p>I expected <code>percent.mt &lt; 5</code> — the whole-cell default from every tutorial.</p>
+<div class="fragment">
+<p><br></p>
+<p>I had also written down the “expert” rebuttal:</p>
+<blockquote>
+<p><em>Heart is mitochondria-rich. Cardiomyocytes are packed with mitochondria. An aggressive MT filter deletes the cell type the study is about.</em></p>
+</blockquote>
+</div>
+<div class="fragment">
+<p><br></p>
+<p><strong>That reasoning is also wrong.</strong> Median <code>percent.mt</code> here is 0.25%, and cardiomyocytes have the <em>lowest</em> of any cell type — because these are nuclei and the cytoplasm has been washed away.</p>
+<p><strong>Its reasoning beat mine.</strong></p>
+</div>
+<aside class="notes">
+<p>Own this. Saying “I got this wrong and the machine didn’t” is the most persuasive thing you can do in this room, and it is true.</p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="normalisation" class="slide level2">
 <h2>Normalisation</h2>
@@ -735,14 +616,21 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 <div class="fragment">
 <p>Here the donors <em>differ by developmental stage</em>. Some separation between them is the signal we came to study. We integrate by <strong>donor</strong>, not by <strong>stage</strong> — deliberately.</p>
 </div>
+</section>
+<section id="it-also-did-something-our-practical-does-not" class="slide level2">
+<h2>It also did something our practical does not</h2>
+<p>You have just seen that integration can remove real biology along with the batch effect. Here is how the agent checked whether it had:</p>
+<blockquote>
+<p>“Clustering on unintegrated PCA gave clusters that were stage-exclusive <em>and</em> donor-exclusive — 7 clusters were ≥90% a single donor. That can’t distinguish development from batch. After Harmony: <strong>0</strong> donor-dominated clusters, while <strong>10</strong> clusters stay stage-restricted. Since those now draw from all donors within a stage, the restriction is developmental.”</p>
+</blockquote>
+<div class="fragment">
+<p>It designed a test to tell correct integration from over-correction. Your practical only warns you that the difference exists.</p>
+</div>
 </section></section>
 <section>
-<section id="part-5" class="title-slide slide level1 center">
-<h1>Part 5</h1>
+<section id="part-4-clustering" class="title-slide slide level1 center">
+<h1>Part 4 Clustering</h1>
 
-</section>
-<section id="clustering" class="slide level2 center">
-<h2>Clustering</h2>
 </section>
 <section id="graph-based-clustering" class="slide level2">
 <h2>Graph-based clustering</h2>
@@ -806,6 +694,59 @@ Dr Jiadong Mao · Melbourne Integrative Genomics
 <div class="fragment">
 <p><br></p>
 <p><strong>A cluster is not a cell type.</strong> It is a community in a graph you built, using genes you selected, in a space you chose the dimension of.</p>
+</div>
+</section>
+<section id="would-it-do-the-same-thing-twice" class="slide level2">
+<h2>Would it do the same thing twice?</h2>
+<p>From Anthropic’s own evaluation, on the hard problems:</p>
+<blockquote>
+<p>nearly half of the wins are paths the model <em>stumbles onto</em> rather than reproduces</p>
+</blockquote>
+<div class="fragment">
+<p><br></p>
+<p><strong>I have run this once.</strong> So I cannot tell you whether a second run picks the same thresholds, the same resolution, or notices the nuclei at all.</p>
+<p>Neither could you, from a paper that reports one run.</p>
+</div>
+<aside class="notes">
+<p>HONEST STATUS: n = 1. Do NOT claim run-to-run variance until A1-A3 are done - see prerun/SCORING_run_A0.md. If you do get the repeat runs before the session, replace this slide with the actual comparison; it is much stronger.</p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="so-what-is-left-for-you" class="slide level2">
+<h2>So what is left for you?</h2>
+<ul>
+<li class="fragment">Not knowing more statistics than it does. It diagnoses things we have not taught you yet, unprompted.</li>
+<li class="fragment">Not knowing more biology. It identified the assay from the data, and I could not.</li>
+<li class="fragment"><strong>Reading to the end</strong> — noticing which number it put in the headline, and which one it buried.</li>
+<li class="fragment"><strong>Noticing the test that was never run.</strong> You will find one this afternoon.</li>
+</ul>
+<div class="fragment">
+<p><br></p>
+<p>Every one of those requires you to already understand the method well enough to know what <em>should</em> have been there.</p>
+</div>
+</section>
+<section id="the-deal-for-today" class="slide level2">
+<h2>The deal for today</h2>
+<p>You will make <strong>five decisions</strong> this afternoon that no tool makes for you:</p>
+<ol type="1">
+<li>Where to set your quality thresholds</li>
+<li>How many principal components to keep</li>
+<li>How finely to cluster</li>
+<li>What cell type a cluster is</li>
+<li>How to test for differential expression</li>
+</ol>
+<div class="fragment">
+<p>Each time: choose, then <strong>justify it to the person next to you</strong>.</p>
+<p>That is the assessable skill, and it is what your report is marked on.</p>
 </div>
 </section>
 <section id="what-you-will-do-now" class="slide level2">

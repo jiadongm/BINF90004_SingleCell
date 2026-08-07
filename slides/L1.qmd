@@ -264,14 +264,11 @@ Yes. Eg 'Single-Nucleus RNA-Seq Is Not Suitable for Detection of Microglial Acti
 | young | y1–y3 | 4–14 years |
 | adult | a1–a3 | 35–42 years |
 
-::: {.fragment}
-**Nine donors.** Remember that number — in the second lecture it turns out to be
-the only number that matters.
-:::
 
 ## The matrix
 
 ```{r matrix-shape}
+seu[["RNA"]]$counts[1:8,1:20]
 cat("genes:", nrow(seu), "\n")
 cat("nuclei:", ncol(seu), "\n")
 m <- SeuratObject::LayerData(seu, assay = "RNA", layer = "counts")
@@ -281,7 +278,7 @@ cat("zeros:", round(100 * (1 - length(m@x) / (nrow(m) * ncol(m))), 1), "%\n")
 <br>
 
 High-dimensional, and **overwhelmingly zero**. Some of those zeros are
-"not expressed"; some are "expressed but not captured". You cannot tell which.
+'not expressed'; some are 'expressed but not captured'; cannot tell which.
 
 # Part 3 Pre-processing
 
@@ -304,17 +301,13 @@ Luecken & Theis 2019 figure. Reuse from the 2025 deck.
 
 ## Quality control
 
-Not every barcode is a good cell:
+Not every droplet/barcode is a good cell:
 
 - **Empty droplets** — ambient RNA only; low counts, low gene number
 - **Dying cells** — membrane compromised, cytoplasmic RNA leaks out,
   mitochondrial fraction rises
-- **Doublets** — two cells, one barcode; look like a chimera
+- **Doublets** — two cells, one barcode (hardest to detect)
 
-::: {.fragment}
-Tools exist for each (CellBender, scDblFinder, DoubletFinder). None of them
-removes the need to choose.
-:::
 
 ## QC metrics
 

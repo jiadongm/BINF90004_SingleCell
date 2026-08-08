@@ -31,6 +31,46 @@ group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
 # Loaded here rather than mid-deck: two later slides use it, and if it is
 # loaded inside a slide chunk, deleting that slide silently breaks them.
 seu <- readRDS(file.path(D, "P1_start.rds"))
+
+## ---- Toy kNN graph, shared by four slides (UMAP, SNN, clustering, resolution)
+# Same reason as above: built here so that deleting any one of those slides
+# cannot break the others. Four groups, and group 4 sits close to group 2 --
+# that near-pair is what merges at low resolution on the resolution slide.
+set.seed(1); n_toy <- 15; K_toy <- 6
+toy <- data.frame(
+    x = c(rnorm(n_toy, 0, .55), rnorm(n_toy, 3.1, .55),
+          rnorm(n_toy, 1.6, .55), rnorm(n_toy, 4.4, .55)),
+    y = c(rnorm(n_toy, 0, .55), rnorm(n_toy, 0.3, .55),
+          rnorm(n_toy, 2.7, .55), rnorm(n_toy, 0.9, .55)))
+# k nearest neighbours of each cell, then a de-duplicated edge list
+toy_nb <- t(apply(as.matrix(dist(toy)), 1, function(d) order(d)[2:(K_toy + 1)]))
+ed <- unique(t(apply(do.call(rbind, lapply(seq_len(nrow(toy)),
+                     function(i) cbind(i, toy_nb[i, ]))), 1, sort)))
+ed <- data.frame(i = ed[, 1], j = ed[, 2])
+# SNN weight: how many neighbours do the two endpoints have in common?
+ed$shared <- mapply(function(a, b) length(intersect(toy_nb[a, ], toy_nb[b, ])),
+                    ed$i, ed$j)
+ed <- cbind(ed, x = toy$x[ed$i], y = toy$y[ed$i],
+                xend = toy$x[ed$j], yend = toy$y[ed$j])
+
+toy_g <- igraph::graph_from_data_frame(ed[ed$shared > 0, c("i", "j")], FALSE,
+                                       data.frame(id = seq_len(nrow(toy))))
+igraph::E(toy_g)$weight <- ed$shared[ed$shared > 0]
+# Louvain is greedy and order-dependent, so seed it: the cluster counts are
+# quoted in the slide titles and must not move between renders.
+toy_cl <- function(r) { set.seed(42)
+    factor(igraph::membership(igraph::cluster_louvain(toy_g, resolution = r))) }
+
+toy_pal <- c("#4E79A7", "#F28E2B", "#59A14F", "#E15759", "#B07AA1", "#76B7B2",
+             "#EDC948", "#FF9DA7", "#9C755F", "#BAB0AC")
+toy_base <- function(p, ttl) p + coord_equal() + theme_void() + ggtitle(ttl) +
+    theme(plot.title = element_text(hjust = .5, size = 14), legend.position = "none")
+# w = TRUE draws edge width/alpha by SNN weight; w = FALSE draws plain kNN edges
+toy_segs <- function(w = FALSE) if (w)
+    geom_segment(data = ed, aes(x = x, y = y, xend = xend, yend = yend,
+                 linewidth = shared, alpha = shared), colour = "grey60") else
+    geom_segment(data = ed, aes(x = x, y = y, xend = xend, yend = yend),
+                 colour = "grey70", linewidth = .3)
 ```
 
 # Part 1 AI bioinformatician?
@@ -374,21 +414,9 @@ the metric you are looking at — and set its mitochondrial threshold accordingl
 
 ## Normalisation
 
-Cells differ in total counts for reasons that are both biological and technical: capture
-efficiency, sequencing depth (budget), cell size, transcriptional activity.
+Cells differ in total counts for both biological and technical reasons, eg sequencing depth (budget) & transcriptional activity.
 
-::: {.incremental}
-- **Naive log-normalisation**: divide raw counts by lib size, scale, log. Simple & fast.
-- **scran**: pool cells (clustering) first to estimate cluster-wise lib size (more robust).
-- **SCTransform**: negative binomial regression: regress lib size our.
-:::
-
-::: {.fragment}
-These methods don't stricly seperate bio vs tech variations in lib size. You need spike-ins (synthetic negative control RNAs).
-:::
-
-
-## Naive log-normalisation toy example
+**Naive log-normalisation**: divide raw counts by lib size, scale, log. 
 
 ```{r lognorm-toy, echo=TRUE}
 counts <- cbind(A = c(10, 5, 1), B = c(20, 10, 2), C = c(2, 10, 20))
@@ -398,32 +426,25 @@ rbind(counts, libsize = colSums(counts))
 
 ::: {.fragment}
 ```{r lognorm-toy-2, echo=TRUE}
-round(log1p(t(t(counts) / colSums(counts)) * 1e4), 2)
+log1p(t(t(counts) / colSums(counts)) * 1e4)
 ```
 :::
 
-::: {.notes}
-Toy numbers are chosen so the arithmetic is doable in the room: the CP10K values
-are exactly 6250 / 3125 / 625.
-
-B is A sequenced twice as deep - same cell, more reads. C has the SAME library
-size as B, so depth cannot explain it; it is a different cell.
-
-Ask before revealing the second chunk: which two of these three cells are the
-same? Most will say A and B look different, because the raw counts differ by 2x
-everywhere. That is exactly the mistake normalisation exists to prevent.
-
-Then push once: normalisation made A and B identical - but it CANNOT tell you
-whether B really was a deeper-sequenced A, or a cell with genuinely twice the
-RNA. Same numbers either way. That is the identifiability point from the
-previous slide, now visible.
+::: {.fragment}
+**A and B are now identical**
 :::
+
+
+## More sophisticated methods
+
+- **scran**: pool cells (clustering) first to estimate cluster-wise lib size (more robust).
+- **SCTransform**: negative binomial regression: regress lib size out, use residual as normalised values.
 
 ::: {.fragment}
-**A and B are now identical** — B was A, sequenced twice as deep.
-
-**C shares B's library size**, so depth explains nothing: a different cell.
+These methods don't stricly seperate bio vs tech variations in lib size. You need spike-ins (synthetic negative control RNAs).
 :::
+
+
 
 ## Feature selection
 
@@ -451,10 +472,53 @@ Still thousands of dimensions, and they are correlated.
 - **Not good** for visualisation — 2 PCs is not enough
 
 
-## Visualisation: UMAP and t-SNE
+## Visualisation: UMAP
 
-Non-linear projections to 2D. Good at preserving **local** structure — cells
-that were neighbours stay neighbours.
+Non-linear projections of high-dim data (or their PCs) to 2D. Good at preserving **local** structure: cells that were neighbours stay neighbours.
+
+UMAP starts with kNN graph:
+
+```{r knn-toy, fig.width=10, fig.height=3.8}
+p1 <- toy_base(ggplot(toy, aes(x, y)) + geom_point(size = 3, colour = "grey30"),
+               paste(nrow(toy), "cells in 20-dimensional PC space"))
+p2 <- toy_base(ggplot(toy, aes(x, y)) + toy_segs() +
+               geom_point(size = 3, colour = "grey30"),
+               paste0("join each to its k = ", K_toy, " nearest"))
+p1 + p2
+```
+
+Throw away the coordinates. Keep only **who is near whom**.
+
+::: {.notes}
+Say explicitly that the left panel is a cartoon: real cells live in 20 PCs, and
+the whole problem is that we cannot see that. Everything from here on uses only
+the edges, never the positions.
+
+Ask how many groups they see before advancing. The right-hand pair is meant to
+be arguable - it is the pair that merges on the resolution slide later.
+:::
+
+## How UMAP works
+
+::: {.incremental}
+1. Build that **k-nearest-neighbour graph** in the high-dimensional space of RNA or PC.
+2. Weight each edge by distance — but rescaled **per cell**, so every cell gets
+   roughly the same total connection, dense regions and sparse regions alike
+3. Lay the graph out in 2D: connected cells **attract**, unconnected cells
+   **repel**, until it settles
+:::
+
+<br>
+
+::: {.fragment}
+Step 2 throws away local **density** and **global** distance.
+
+The gains: rare cell type more visible; clusters separable
+:::
+
+
+
+## On our data
 
 ```{r umap-demo, fig.width=9, fig.height=4}
 s2 <- readRDS(file.path(D, "checkpoints/02_integrated_clustered.rds"))
@@ -474,46 +538,44 @@ DimPlot(s2, reduction = "umap", group.by = "group", cols = group_cols,
 <br>
 
 ::: {.fragment}
-It is a picture for looking at, not a measurement. Never test a hypothesis on
-UMAP coordinates.
+It is a picture for looking at possible clusters. Never test a hypothesis on UMAP coordinates.
 :::
+
 
 ## Batch effects
 
 ```{r batch, fig.width=10, fig.height=4.2}
-p1 <- DimPlot(s2, reduction = "pca", group.by = "sample", shuffle = TRUE) +
-    ggtitle("PCA — before integration") + theme(legend.position = "none")
-p2 <- DimPlot(s2, reduction = "harmony", group.by = "sample", shuffle = TRUE) +
-    ggtitle("After Harmony")
+# UMAP on the *unintegrated* PCA, so both panels are the same kind of picture
+s2 <- RunUMAP(s2, reduction = "pca", dims = 1:20,
+              reduction.name = "umap_unint", verbose = FALSE)
+p1 <- DimPlot(s2, reduction = "umap_unint", group.by = "sample", shuffle = TRUE) +
+    ggtitle("UMAP — before integration") + theme(legend.position = "none")
+p2 <- DimPlot(s2, reduction = "umap", group.by = "sample", shuffle = TRUE) +
+    ggtitle("UMAP — after Harmony")
 p1 + p2
 ```
 
-Cells cluster by **donor** instead of by cell type. Each sample carries its own
-technical signature.
+Before integration, cells clustered by **donor**: is it good or bad?
 
-## Integration
 
-**MNN** · **CCA** · **Harmony** — all find a shared space where donors overlap.
+## A design problem
 
-::: {.fragment}
-::: {.callout-warning appearance="minimal"}
-**There is no measurement that tells you it worked.**
+Batch effects are most effectively dealt with at experimental design stage:
 
-"The donors mix better" is also exactly what over-correction looks like — and
-over-correction deletes real biology.
-:::
-:::
-
-::: {.fragment}
-Here the donors *differ by developmental stage*. Some separation between them is
-the signal we came to study. We integrate by **donor**, not by **stage** —
-deliberately.
+::: {.incremental}
+- Case 1: Treated and control cells from the *same* donor, hashed and run in
+  **one** 10x lane. 
+- Case 2: Six donors, three conditions, run over four days —
+  with **each day carrying a mix of conditions**. 
+- Case 3: All patients in January on chemistry v2, all controls in June
+  on v3. Batch and biology are the same column.
 :::
 
-## It also did something our practical does not
 
-You have just seen that integration can remove real biology along with the
-batch effect. Here is how the agent checked whether it had:
+
+
+## How Claude Sci evaluated batches
+
 
 > "Clustering on unintegrated PCA gave clusters that were stage-exclusive *and*
 > donor-exclusive — 7 clusters were ≥90% a single donor. That can't distinguish
@@ -522,9 +584,10 @@ batch effect. Here is how the agent checked whether it had:
 > within a stage, the restriction is developmental."
 
 ::: {.fragment}
-It designed a test to tell correct integration from over-correction. Your
-practical only warns you that the difference exists.
+Importance of biological repeats.
 :::
+
+
 
 # Part 4 Clustering
 
@@ -538,7 +601,54 @@ practical only warns you that the difference exists.
 
 **Louvain** (Seurat default) · **Leiden** (faster, better-connected communities)
 
+## Why *shared* neighbours?
+
+Starting with same kNN graph for UMAP. But re-weight every edge by how
+many neighbours its two endpoints have in common.
+
+::: {.incremental}
+- Two cells of the same type in the same crowd: they share **most** of
+  their k neighbours 
+- Two cells that happen to be adjacent across a boundary have very different kNNs → the edge survives kNN but is nearly weightless
+:::
+
+
+
+## 
+
+sNN graph for toy data with 4 clusters 
+
+```{r comm-toy, fig.width=6.5, fig.height=4.3}
+toy_base(ggplot(toy, aes(x, y)) + toy_segs(TRUE) +
+    scale_linewidth(range = c(.15, 1.6)) + scale_alpha(range = c(.1, .85)) +
+    geom_point(aes(colour = toy_cl(0.5)), size = 3) +
+    scale_colour_manual(values = toy_pal),
+    "line width = shared neighbours")
+```
+
+```{r snn-numbers}
+cl5 <- toy_cl(0.5)
+btw <- max(ed$shared[cl5[ed$i] != cl5[ed$j]])
+```
+
+
+
 ## Resolution
+
+```{r res-toy, fig.width=12, fig.height=3.7}
+wrap_plots(lapply(c(0.1, 0.5, 2), function(r) toy_base(
+    ggplot(toy, aes(x, y)) + toy_segs(TRUE) +
+    scale_linewidth(range = c(.15, 1.4)) + scale_alpha(range = c(.08, .7)) +
+    geom_point(aes(colour = toy_cl(r)), size = 2.8) +
+    scale_colour_manual(values = toy_pal),
+    paste0("resolution = ", r, "  →  ", nlevels(toy_cl(r)), " clusters"))),
+    nrow = 1)
+```
+
+Resolution parameter: how much internal density a group needs to form its own cluster.
+
+
+## Resolution on our heart data
 
 ```{r res-counts}
 res <- c(0.1, 0.2, 0.3, 0.4, 0.6, 0.8)
@@ -547,87 +657,22 @@ knitr::kable(data.frame(resolution = res, clusters = n))
 ```
 
 ::: {.fragment}
-There is no correct value. It depends on the question — and today, on you.
-*(Decision 3.)*
+How many clusters?
 :::
 
-## A warning you will verify this afternoon
 
-The published analysis of this tissue describes **8 cell types**.
-
-::: {.fragment}
-At the *lowest* resolution above, you already get **12 clusters**.
-:::
-
-::: {.fragment}
-<br>
-
-**A cluster is not a cell type.** It is a community in a graph you built, using
-genes you selected, in a space you chose the dimension of.
-:::
-
-## Would it do the same thing twice?
+## What's left for us to do?
 
 From Anthropic's own evaluation, on the hard problems:
 
 > nearly half of the wins are paths the model *stumbles onto* rather than
 > reproduces
 
-::: {.fragment}
-<br>
-
-**I have run this once.** So I cannot tell you whether a second run picks the
-same thresholds, the same resolution, or notices the nuclei at all.
-
-Neither could you, from a paper that reports one run.
-:::
-
-::: {.notes}
-HONEST STATUS: n = 1. Do NOT claim run-to-run variance until A1-A3 are done -
-see prerun/SCORING_run_A0.md. If you do get the repeat runs before the session,
-replace this slide with the actual comparison; it is much stronger.
-:::
-
-## So what is left for you?
-
-::: {.incremental}
-- Not knowing more statistics than it does. It diagnoses things we have not
-  taught you yet, unprompted.
-- Not knowing more biology. It identified the assay from the data, and I
-  could not.
-- **Reading to the end** — noticing which number it put in the headline, and
-  which one it buried.
-- **Noticing the test that was never run.** You will find one this afternoon.
-:::
-
-::: {.fragment}
-<br>
-
-Every one of those requires you to already understand the method well enough to
-know what *should* have been there.
-:::
-
-## The deal for today
-
-You will make **five decisions** this afternoon that no tool makes for you:
-
-1. Where to set your quality thresholds
-2. How many principal components to keep
-3. How finely to cluster
-4. What cell type a cluster is
-5. How to test for differential expression
-
-::: {.fragment}
-Each time: choose, then **justify it to the person next to you**.
-
-That is the assessable skill, and it is what your report is marked on.
-:::
-
-## What you will do now
+In my first run, Claude Sci didn't realise the data was snRNA-seq rather than sc.
 
 ::: {.callout-note appearance="minimal"}
 
-## Practical 1 — 65 minutes
+## Practical 1 
 **Decision 1.** Where do you set your QC thresholds?
 
 **Decision 2.** How many PCs?
@@ -635,9 +680,11 @@ That is the assessable skill, and it is what your report is marked on.
 **Decision 3.** How many clusters are real?
 :::
 
-<br>
 
-There is one hard sync point. You are not expected to finish every chunk.
 
-If your R is broken, you can still do all three — **come anyway.**
+
+
+
+
+
 

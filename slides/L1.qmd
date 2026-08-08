@@ -301,7 +301,7 @@ Luecken & Theis 2019 figure. Reuse from the 2025 deck.
 
 ## Quality control
 
-Not every droplet/barcode is a good cell:
+Not every droplet (unique barcode) is a good cell:
 
 - **Empty droplets** — ambient RNA only; low counts, low gene number
 - **Dying cells** — membrane compromised, cytoplasmic RNA leaks out,
@@ -325,12 +325,12 @@ wrap_plots(qc, ncol = 3) &
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
 ```
 
-Why sample level comparisons? 
+Sample level comparison of total RNA counts, genes detected, percentage of **mitochondrial genes**
 
 
 ## How would Claude process the data?
 
-Uploaded the data you are about to analyse with **no prompts**
+Uploaded the data with **no prompts**
 
 <br>
 
@@ -356,10 +356,9 @@ This is the first time the pre-run is mentioned all morning. Part 1 was about
 AI in science generally - do not pre-empt this there.
 :::
 
-## The first thing it said {.center}
+## 
 
-You have just met `percent.mt`. **This was the opening of its report**, written
-before it ran anything.
+Openning of the report:
 
 > "mitochondrial fractions are uniformly low (donor medians 0.10–1.78%) **and**
 > so are ribosomal fractions (0.4–1.3%). That combination points to a
@@ -371,50 +370,59 @@ Nobody told it this was snRNA-seq. **It worked that out from the data** — from
 the metric you are looking at — and set its mitochondrial threshold accordingly.
 :::
 
-## I had predicted it would get that wrong
 
-Here is the threshold it chose — and the one I bet it would choose.
-
-I expected `percent.mt < 5` — the whole-cell default from every tutorial.
-
-::: {.fragment}
-<br>
-
-I had also written down the "expert" rebuttal:
-
-> *Heart is mitochondria-rich. Cardiomyocytes are packed with mitochondria. An
-> aggressive MT filter deletes the cell type the study is about.*
-:::
-
-::: {.fragment}
-<br>
-
-**That reasoning is also wrong.** Median `percent.mt` here is 0.25%, and
-cardiomyocytes have the *lowest* of any cell type — because these are nuclei and
-the cytoplasm has been washed away.
-
-**Its reasoning beat mine.**
-:::
-
-::: {.notes}
-Own this. Saying "I got this wrong and the machine didn't" is the most
-persuasive thing you can do in this room, and it is true.
-:::
 
 ## Normalisation
 
-Cells differ in total counts for reasons that are not biological — capture
-efficiency, sequencing depth, cell size.
+Cells differ in total counts for reasons that are both biological and technical: capture
+efficiency, sequencing depth (budget), cell size, transcriptional activity.
 
 ::: {.incremental}
-- **Log-normalisation**: divide by library size, scale, log. Simple, fast.
-- **SCTransform**: regularised negative binomial; returns Pearson residuals.
-  Handles the mean–variance relationship properly.
+- **Naive log-normalisation**: divide raw counts by lib size, scale, log. Simple & fast.
+- **scran**: pool cells (clustering) first to estimate cluster-wise lib size (more robust).
+- **SCTransform**: negative binomial regression: regress lib size our.
 :::
 
 ::: {.fragment}
-We use SCTransform today. Neither is "correct" — they answer slightly different
-questions.
+These methods don't stricly seperate bio vs tech variations in lib size. You need spike-ins (synthetic negative control RNAs).
+:::
+
+
+## Naive log-normalisation toy example
+
+```{r lognorm-toy, echo=TRUE}
+counts <- cbind(A = c(10, 5, 1), B = c(20, 10, 2), C = c(2, 10, 20))
+rownames(counts) <- c("ACTB", "GAPDH", "MYH7")
+rbind(counts, libsize = colSums(counts))
+```
+
+::: {.fragment}
+```{r lognorm-toy-2, echo=TRUE}
+round(log1p(t(t(counts) / colSums(counts)) * 1e4), 2)
+```
+:::
+
+::: {.notes}
+Toy numbers are chosen so the arithmetic is doable in the room: the CP10K values
+are exactly 6250 / 3125 / 625.
+
+B is A sequenced twice as deep - same cell, more reads. C has the SAME library
+size as B, so depth cannot explain it; it is a different cell.
+
+Ask before revealing the second chunk: which two of these three cells are the
+same? Most will say A and B look different, because the raw counts differ by 2x
+everywhere. That is exactly the mistake normalisation exists to prevent.
+
+Then push once: normalisation made A and B identical - but it CANNOT tell you
+whether B really was a deeper-sequenced A, or a cell with genuinely twice the
+RNA. Same numbers either way. That is the identifiability point from the
+previous slide, now visible.
+:::
+
+::: {.fragment}
+**A and B are now identical** — B was A, sequenced twice as deep.
+
+**C shares B's library size**, so depth explains nothing: a different cell.
 :::
 
 ## Feature selection
@@ -426,11 +434,10 @@ questions.
 
 <br>
 
-Keep the **2,000–5,000 most variable** genes. Everything downstream — PCA,
-clustering — runs on those.
+Keep the **2,000–5,000 most variable** genes. 
 
 ::: {.fragment}
-Note what this means: **a gene you filter out cannot be discovered.**
+Caveat: a gene you filter out cannot be discovered.
 :::
 
 ## Dimension reduction: PCA
@@ -440,12 +447,9 @@ Still thousands of dimensions, and they are correlated.
 **PCA** finds linear combinations capturing the most variance.
 
 - Use the first 10–50 PCs for everything downstream
-- Faster, and drops noise in the high components
-- **Not** for visualisation — 2 PCs is not enough
+- Faster, and drops noise in the tail components
+- **Not good** for visualisation — 2 PCs is not enough
 
-::: {.fragment}
-How many to keep? An elbow plot, and a judgement call. *(Decision 2.)*
-:::
 
 ## Visualisation: UMAP and t-SNE
 

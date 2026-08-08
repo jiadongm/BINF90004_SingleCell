@@ -31,6 +31,72 @@
       margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
       vertical-align: middle;
     }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      { color: #003b4f; background-color: #f1f3f5; }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span { color: #003b4f; } /* Normal */
+    code span.al { color: #ad0000; } /* Alert */
+    code span.an { color: #5e5e5e; } /* Annotation */
+    code span.at { color: #657422; } /* Attribute */
+    code span.bn { color: #ad0000; } /* BaseN */
+    code span.bu { } /* BuiltIn */
+    code span.cf { color: #003b4f; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #20794d; } /* Char */
+    code span.cn { color: #8f5902; } /* Constant */
+    code span.co { color: #5e5e5e; } /* Comment */
+    code span.cv { color: #5e5e5e; font-style: italic; } /* CommentVar */
+    code span.do { color: #5e5e5e; font-style: italic; } /* Documentation */
+    code span.dt { color: #ad0000; } /* DataType */
+    code span.dv { color: #ad0000; } /* DecVal */
+    code span.er { color: #ad0000; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #ad0000; } /* Float */
+    code span.fu { color: #4758ab; } /* Function */
+    code span.im { color: #00769e; } /* Import */
+    code span.in { color: #5e5e5e; } /* Information */
+    code span.kw { color: #003b4f; font-weight: bold; } /* Keyword */
+    code span.op { color: #5e5e5e; } /* Operator */
+    code span.ot { color: #003b4f; } /* Other */
+    code span.pp { color: #ad0000; } /* Preprocessor */
+    code span.sc { color: #5e5e5e; } /* SpecialChar */
+    code span.ss { color: #20794d; } /* SpecialString */
+    code span.st { color: #20794d; } /* String */
+    code span.va { color: #111111; } /* Variable */
+    code span.vs { color: #20794d; } /* VerbatimString */
+    code span.wa { color: #5e5e5e; font-style: italic; } /* Warning */
   </style>
   <link rel="stylesheet" href="L1_files/libs/revealjs/dist/theme/quarto-2740581606dc327e82f18f789b69d8a0.css">
   <link href="L1_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.css" rel="stylesheet">
@@ -462,7 +528,7 @@ KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
 </section>
 <section id="quality-control" class="slide level2">
 <h2>Quality control</h2>
-<p>Not every droplet/barcode is a good cell:</p>
+<p>Not every droplet (unique barcode) is a good cell:</p>
 <ul>
 <li><strong>Empty droplets</strong> — ambient RNA only; low counts, low gene number</li>
 <li><strong>Dying cells</strong> — membrane compromised, cytoplasmic RNA leaks out, mitochondrial fraction rises</li>
@@ -472,11 +538,11 @@ KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
 <section id="qc-metrics" class="slide level2">
 <h2>QC metrics</h2>
 
-<img data-src="L1_files/figure-revealjs/qc-violin-1.png" width="1056" class="r-stretch"><p>Why sample level comparisons?</p>
+<img data-src="L1_files/figure-revealjs/qc-violin-1.png" width="1056" class="r-stretch"><p>Sample level comparison of total RNA counts, genes detected, percentage of <strong>mitochondrial genes</strong></p>
 </section>
 <section id="how-would-claude-process-the-data" class="slide level2">
 <h2>How would Claude process the data?</h2>
-<p>Uploaded the data you are about to analyse with <strong>no prompts</strong></p>
+<p>Uploaded the data with <strong>no prompts</strong></p>
 <p><br></p>
 <p>100 minutes later: QC, integration, clustering, annotation, composition, differential expression, four figures, four tables, a processed data object and a written report.</p>
 <div class="fragment">
@@ -500,9 +566,9 @@ KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
           display:block!important;
       }</style></aside>
 </section>
-<section id="the-first-thing-it-said" class="slide level2 center">
-<h2>The first thing it said</h2>
-<p>You have just met <code>percent.mt</code>. <strong>This was the opening of its report</strong>, written before it ran anything.</p>
+<section id="section-2" class="slide level2">
+<h2></h2>
+<p>Openning of the report:</p>
 <blockquote>
 <p>“mitochondrial fractions are uniformly low (donor medians 0.10–1.78%) <strong>and</strong> so are ribosomal fractions (0.4–1.3%). That combination points to a <strong>single-nucleus prep</strong> rather than whole cells, which changes how you’d handle ambient RNA.”</p>
 </blockquote>
@@ -510,24 +576,48 @@ KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
 <p>Nobody told it this was snRNA-seq. <strong>It worked that out from the data</strong> — from the metric you are looking at — and set its mitochondrial threshold accordingly.</p>
 </div>
 </section>
-<section id="i-had-predicted-it-would-get-that-wrong" class="slide level2">
-<h2>I had predicted it would get that wrong</h2>
-<p>Here is the threshold it chose — and the one I bet it would choose.</p>
-<p>I expected <code>percent.mt &lt; 5</code> — the whole-cell default from every tutorial.</p>
+<section id="normalisation" class="slide level2">
+<h2>Normalisation</h2>
+<p>Cells differ in total counts for reasons that are both biological and technical: capture efficiency, sequencing depth (budget), cell size, transcriptional activity.</p>
+<ul>
+<li class="fragment"><strong>Naive log-normalisation</strong>: divide raw counts by lib size, scale, log. Simple &amp; fast.</li>
+<li class="fragment"><strong>scran</strong>: pool cells (clustering) first to estimate cluster-wise lib size (more robust).</li>
+<li class="fragment"><strong>SCTransform</strong>: negative binomial regression: regress lib size our.</li>
+</ul>
 <div class="fragment">
-<p><br></p>
-<p>I had also written down the “expert” rebuttal:</p>
-<blockquote>
-<p><em>Heart is mitochondria-rich. Cardiomyocytes are packed with mitochondria. An aggressive MT filter deletes the cell type the study is about.</em></p>
-</blockquote>
+<p>These methods don’t stricly seperate bio vs tech variations in lib size. You need spike-ins (synthetic negative control RNAs).</p>
+</div>
+</section>
+<section id="naive-log-normalisation-toy-example" class="slide level2">
+<h2>Naive log-normalisation toy example</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href=""></a>counts <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">A =</span> <span class="fu">c</span>(<span class="dv">10</span>, <span class="dv">5</span>, <span class="dv">1</span>), <span class="at">B =</span> <span class="fu">c</span>(<span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">2</span>), <span class="at">C =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">10</span>, <span class="dv">20</span>))</span>
+<span id="cb6-2"><a href=""></a><span class="fu">rownames</span>(counts) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"ACTB"</span>, <span class="st">"GAPDH"</span>, <span class="st">"MYH7"</span>)</span>
+<span id="cb6-3"><a href=""></a><span class="fu">rbind</span>(counts, <span class="at">libsize =</span> <span class="fu">colSums</span>(counts))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>         A  B  C
+ACTB    10 20  2
+GAPDH    5 10 10
+MYH7     1  2 20
+libsize 16 32 32</code></pre>
+</div>
 </div>
 <div class="fragment">
-<p><br></p>
-<p><strong>That reasoning is also wrong.</strong> Median <code>percent.mt</code> here is 0.25%, and cardiomyocytes have the <em>lowest</em> of any cell type — because these are nuclei and the cytoplasm has been washed away.</p>
-<p><strong>Its reasoning beat mine.</strong></p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href=""></a><span class="fu">round</span>(<span class="fu">log1p</span>(<span class="fu">t</span>(<span class="fu">t</span>(counts) <span class="sc">/</span> <span class="fu">colSums</span>(counts)) <span class="sc">*</span> <span class="fl">1e4</span>), <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>         A    B    C
+ACTB  8.74 8.74 6.44
+GAPDH 8.05 8.05 8.05
+MYH7  6.44 6.44 8.74</code></pre>
+</div>
+</div>
 </div>
 <aside class="notes">
-<p>Own this. Saying “I got this wrong and the machine didn’t” is the most persuasive thing you can do in this room, and it is true.</p>
+<p>Toy numbers are chosen so the arithmetic is doable in the room: the CP10K values are exactly 6250 / 3125 / 625.</p>
+<p>B is A sequenced twice as deep - same cell, more reads. C has the SAME library size as B, so depth cannot explain it; it is a different cell.</p>
+<p>Ask before revealing the second chunk: which two of these three cells are the same? Most will say A and B look different, because the raw counts differ by 2x everywhere. That is exactly the mistake normalisation exists to prevent.</p>
+<p>Then push once: normalisation made A and B identical - but it CANNOT tell you whether B really was a deeper-sequenced A, or a cell with genuinely twice the RNA. Same numbers either way. That is the identifiability point from the previous slide, now visible.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
@@ -539,16 +629,9 @@ KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
           overflow: hidden!important;
           display:block!important;
       }</style></aside>
-</section>
-<section id="normalisation" class="slide level2">
-<h2>Normalisation</h2>
-<p>Cells differ in total counts for reasons that are not biological — capture efficiency, sequencing depth, cell size.</p>
-<ul>
-<li class="fragment"><strong>Log-normalisation</strong>: divide by library size, scale, log. Simple, fast.</li>
-<li class="fragment"><strong>SCTransform</strong>: regularised negative binomial; returns Pearson residuals. Handles the mean–variance relationship properly.</li>
-</ul>
 <div class="fragment">
-<p>We use SCTransform today. Neither is “correct” — they answer slightly different questions.</p>
+<p><strong>A and B are now identical</strong> — B was A, sequenced twice as deep.</p>
+<p><strong>C shares B’s library size</strong>, so depth explains nothing: a different cell.</p>
 </div>
 </section>
 <section id="feature-selection" class="slide level2">
@@ -559,9 +642,9 @@ KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
 <li>expressed everywhere at the same level (housekeeping)</li>
 </ul>
 <p><br></p>
-<p>Keep the <strong>2,000–5,000 most variable</strong> genes. Everything downstream — PCA, clustering — runs on those.</p>
+<p>Keep the <strong>2,000–5,000 most variable</strong> genes.</p>
 <div class="fragment">
-<p>Note what this means: <strong>a gene you filter out cannot be discovered.</strong></p>
+<p>Caveat: a gene you filter out cannot be discovered.</p>
 </div>
 </section>
 <section id="dimension-reduction-pca" class="slide level2">
@@ -570,12 +653,9 @@ KLHL17      . . . . . . 1 . . . . . . . . . . . . .</code></pre>
 <p><strong>PCA</strong> finds linear combinations capturing the most variance.</p>
 <ul>
 <li>Use the first 10–50 PCs for everything downstream</li>
-<li>Faster, and drops noise in the high components</li>
-<li><strong>Not</strong> for visualisation — 2 PCs is not enough</li>
+<li>Faster, and drops noise in the tail components</li>
+<li><strong>Not good</strong> for visualisation — 2 PCs is not enough</li>
 </ul>
-<div class="fragment">
-<p>How many to keep? An elbow plot, and a judgement call. <em>(Decision 2.)</em></p>
-</div>
 </section>
 <section id="visualisation-umap-and-t-sne" class="slide level2">
 <h2>Visualisation: UMAP and t-SNE</h2>

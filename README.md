@@ -6,7 +6,9 @@ Guest lecture and practical for [BINF90004 Bioinformatics Case Studies](https://
 
 ### 📖 [Read the materials online →](https://jiadongm.github.io/BINF90004_SingleCell/)
 
-Both practicals and both lecture decks, fully rendered with all code, output and figures. **If your R installation will not work, you can follow the entire session there** — the decisions you are assessed on are answered by thinking, not by running code. Come anyway and sit next to someone whose laptop works.
+Practicals and lecture decks, fully rendered with all code, output and figures. **If your R installation will not work, you can follow the entire session there** — the decisions you are assessed on are answered by thinking, not by running code. Come anyway and sit next to someone whose laptop works.
+
+*Lecture 2 and Practical 2 cover the second half of the session and will be posted on the day.*
 
 ------------------------------------------------------------------------
 

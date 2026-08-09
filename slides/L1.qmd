@@ -21,6 +21,7 @@ execute:
 ```{r setup}
 suppressPackageStartupMessages({
     library(Seurat); library(ggplot2); library(dplyr); library(patchwork)
+    library(igraph)
 })
 # Resolve the data folder for every layout this deck is rendered from:
 # repo root, repo slides/, and the private authoring folder (../dist).

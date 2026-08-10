@@ -18,17 +18,6 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
 
 # Before you start
 
-**You have 65 minutes. You are not expected to finish every chunk.**
-
-There is one **hard sync point**, marked in red below. When we reach it, everyone
-loads the same checkpoint file and moves on together — whether or not your own
-code has finished. Nobody gets left behind, so do not panic if you fall behind.
-
-Three sections are marked **DECISION**. These are the point of the practical.
-Each asks you to make a choice that the data alone does not determine, and to
-justify it to the person sitting next to you. If your R is not working, **you can
-still do all three** — they are answered by looking and thinking, not by running
-code.
 
 ```{r libraries}
 library(Seurat)
@@ -125,6 +114,32 @@ VlnPlot(seu, features = c("nCount_RNA", "nFeature_RNA", "percent.mt", "percent.r
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+Both panels below put library size on the x-axis. Before you look, know what each
+one *should* show — a departure only means something if you had an expectation.
+
+**Library size vs genes detected** should be a single tight cloud that rises and
+then flattens, with all nine donors on the same curve. The two axes measure the
+same underlying quantity — how much RNA was captured and sequenced — so they are
+strongly correlated. The flattening is expected: detection is all-or-nothing per
+gene, so extra depth increasingly re-sequences genes you have already seen. What
+is informative is anything off that curve. Nuclei **below** it spread many counts
+over few genes: a low-complexity library, either ambient RNA or a handful of
+genes eating the depth. Nuclei far **up and to the right** of everything else are
+candidate doublets, two nuclei captured in one droplet. The **bottom-left** cloud
+is empty droplets and debris, and is what `min_counts` and `min_genes` remove. A
+whole donor sitting on its own curve is not biology; it is a difference in
+sequencing depth or prep.
+
+**Library size vs % mitochondrial** is conventionally read as a cell-health plot,
+and the reasoning is worth stating because you are about to test it. When a cell
+dies, its membrane becomes permeable and cytoplasmic mRNA leaks out, while
+mitochondria — which have their own double membrane — are retained. Damaged cells
+therefore end up with *few counts* and a *high mitochondrial fraction*, giving a
+characteristic L-shape: a dense band along the bottom, plus a tail climbing the
+left-hand edge. That tail is what a `percent.mt` threshold exists to remove.
+
+Keep that expected shape in mind when you look at the right-hand panel.
+
 ```{r qc-scatter, fig.width=11, fig.height=4.5}
 p1 <- FeatureScatter(seu, "nCount_RNA", "nFeature_RNA", group.by = "sample",
                      cols = sample_cols) + ggtitle("Library size vs genes detected")
@@ -154,6 +169,18 @@ are nuclei*. Mitochondria live in the cytoplasm, and the nuclei prep washes the
 cytoplasm away. A threshold carried over from a whole-cell dataset is answering a
 question this assay does not ask.
 
+So the L-shape is largely absent, and with it the interpretation that justified
+the threshold. What `percent.mt` still tracks in a nuclei prep is how completely
+the cytoplasm was washed away — a property of the *preparation*, not of the
+health of any individual nucleus. That has a consequence which matters in
+Practical 2: a metric driven by prep does not vary evenly across the things you
+want to compare. It varies by cell type — cardiomyocytes carry the **lowest**
+mitochondrial fraction of any type in this dataset, so cutting on `percent.mt`
+preferentially removes everything that is *not* a cardiomyocyte. Note that the
+intuitive argument here — heart tissue is mitochondria-rich, so expect a high
+`percent.mt` — gets this backwards; you can check the claim yourself once you
+have annotated clusters in Practical 2. And it varies by donor.
+
 Now look across the rows of that table rather than down the columns.
 
 > ### <span style="color:#C0392B">DECISION 1 — where do you cut? *(10 min)*</span>
@@ -175,8 +202,7 @@ Now look across the rows of that table rather than down the columns.
 > 4. Would you use one global threshold, or a per-donor one? What is the cost of
 >    each?
 >
-> There is no marking scheme here. There is a defensible answer and an
-> indefensible one, and the difference is whether you looked.
+
 
 ```{r decision-1}
 # ---- YOUR VALUES ----

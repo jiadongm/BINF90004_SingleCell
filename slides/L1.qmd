@@ -98,25 +98,29 @@ Expect nearly every hand for the first, very few for the second. That gap is
 the whole lecture.
 :::
 
-## This is a product category now
+## Claude Science
 
+::: {.columns}
+::: {.column width="55%"}
 ::: {.incremental}
 - **Claude Science** (beta, 2026) — multi-agent workbench for scientific analysis
 - Connectors: Benchling, 10x Genomics, PubMed, BioRender, Synapse
 - **Agent Skills** — packaged, reproducible analysis workflows
 :::
 
-<br>
 
 ::: {.fragment}
 The first Agent Skill Anthropic released is **`single-cell-rna-qc`**.
-
 It automates the quality control step of scRNA-seq.
-
-**That is section 2 of your practical this afternoon.**
+:::
 :::
 
-## It is genuinely good
+::: {.column width="45%"}
+![](figs/ClaudeScience.png){width="88%" fig-alt="Anthropic announcement page: Claude Science, an AI workbench for scientists, is now available, dated 30 June 2026."}
+:::
+:::
+
+## Is it good?
 
 **BioMysteryBench** — expert-written questions on real datasets, objective
 ground truth. You are given the data files and a question; looking the source
@@ -248,6 +252,8 @@ Overly conservative: an AI reviewer would reject most published papers.
 
 Simplified central dogma: DNA → **RNA** → protein
 
+![](figs/centralDogma.jpg){width="62%" fig-align="center" fig-alt="The central dogma: DNA is transcribed to RNA and RNA is translated to protein, with DNA replication and reverse transcription from RNA back to DNA also marked."}
+
 - DNA is (nearly) the same in every cell
 
   - scDNA-seq is niche, e.g. evolution of cancer clones
@@ -261,6 +267,8 @@ Simplified central dogma: DNA → **RNA** → protein
 
 ## How it works
 
+::: {.columns}
+::: {.column width="48%"}
 1. Dissociate the tissue into single cells
 2. Capture each cell in a droplet with a barcoded bead
 3. Every transcript from that cell gets the same barcode
@@ -268,6 +276,12 @@ Simplified central dogma: DNA → **RNA** → protein
 
 ::: {.fragment}
 **Output: a genes × cells matrix of counts.**
+:::
+:::
+
+::: {.column width="52%"}
+![](figs/dropletSingleCell.webp){width="100%" fig-alt="Droplet microfluidics: a stream of cells and a stream of barcoded microparticles meet at a junction, so each cell is encapsulated with a bead in its own droplet."}
+:::
 :::
 
 ## Cells or nuclei?

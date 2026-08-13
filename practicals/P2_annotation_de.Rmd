@@ -1,0 +1,570 @@
+---
+title: "Practical 2 — From clusters to conclusions"
+subtitle: "BINF90004 Bioinformatics Case Studies · scRNA-seq"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.align = "center")
+```
+
+# Before you start
+
+**65 minutes, one hard sync point, two decisions.**
+
+In Practical 1 you turned a count matrix into 19 clusters. Clusters are not an
+answer — they are numbered blobs. Today you give them names, and then use those
+names to make two biological claims: *which cell types change in abundance as the
+heart matures*, and *which genes change within a cell type*.
+
+The second of those is where most published single-cell analyses go wrong, and it
+is the main thing to take away from today.
+
+```{r libraries}
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+library(speckle)
+library(edgeR)
+library(limma)
+
+options(future.globals.maxSize = 8 * 1024^3)
+
+# Resolve the data folder whether you knit from practicals/ or run
+# interactively with the repo root as your working directory. The third
+# branch is the instructor's private authoring folder.
+DATA <- if (dir.exists("data")) "data" else
+        if (dir.exists("../data")) "../data" else "../dist"
+```
+
+```{r palettes}
+group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
+```
+
+```{r load}
+seu <- readRDS(file.path(DATA, "checkpoints/02_integrated_clustered.rds"))
+seu
+table(seu$seurat_clusters)
+```
+
+---
+
+# 1. Marker genes
+
+A cluster is defined by the genes that are higher in it than in everything else.
+`FindAllMarkers()` runs that comparison for every cluster.
+
+**We are loading a cached result rather than computing it.** Seurat's default
+Wilcoxon implementation takes several minutes on 19 clusters, and there is no
+teaching value in watching a progress bar. The exact call that produced the
+cache is in the chunk below — run it later if you want.
+
+```{r markers}
+markers <- readRDS(file.path(DATA, "markers_cache.rds"))
+
+# How it was produced:
+# seu <- PrepSCTFindMarkers(seu)
+# markers <- FindAllMarkers(seu, only.pos = TRUE,
+#                           min.pct = 0.25, logfc.threshold = 0.5)
+
+nrow(markers)
+head(markers)
+```
+
+```{r top-markers}
+top5 <- markers |>
+    group_by(cluster) |>
+    slice_max(avg_log2FC, n = 5) |>
+    summarise(top_genes = paste(gene, collapse = ", "))
+top5
+```
+
+## 1.1 Canonical markers
+
+Published markers for the major cardiac populations (Sim et al. 2021 and
+standard references). Dot size is the fraction of nuclei expressing the gene;
+colour is mean expression.
+
+```{r canonical-panel}
+panel <- list(
+    Cardiomyocyte  = c("TNNT2", "ACTN2", "TNNI3", "RYR2", "MYH6", "TTN"),
+    Fibroblast     = c("COL1A1", "COL3A1", "DCN", "PDGFRA"),
+    Endothelial    = c("PECAM1", "CDH5", "VWF", "FLT1"),
+    Immune         = c("PTPRC", "CD68", "CD163", "CD74"),
+    Epicardial     = c("UPK3B", "WT1", "MSLN"),
+    Neural         = c("PLP1", "S100B", "NRXN1"),
+    `Smooth muscle`= c("MYH11", "TAGLN", "MYLK")
+)
+genes <- unlist(panel, use.names = FALSE)
+genes <- genes[genes %in% rownames(seu)]   # drop anything filtered out earlier
+setdiff(unlist(panel, use.names = FALSE), genes)  # what was missing, if any
+```
+
+```{r dotplot, fig.width=13, fig.height=6}
+DotPlot(seu, features = genes, assay = "SCT") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    labs(x = NULL, y = "cluster")
+```
+
+---
+
+# 2. Naming the clusters
+
+> ### <span style="color:#C0392B">DECISION 4 — what is your cluster? *(15 min)*</span>
+>
+> Your demonstrator will give each pair **one cluster number**.
+>
+> 1. Pull its top markers with the chunk below.
+> 2. Look them up. [PanglaoDB](https://panglaodb.se/search.html) is a searchable
+>    database of cell-type markers; the [Human Protein Atlas](https://www.proteinatlas.org/)
+>    is good for single genes.
+> 3. **Then go back and check your cluster in the DotPlot above.** Do not skip
+>    this. `FindAllMarkers` returns what makes your cluster *different from the
+>    other eighteen* — which is not the same as what makes it what it is. If
+>    eleven clusters are the same cell type, the genes defining that cell type
+>    cancel out and never appear in any of their marker lists.
+> 4. **Commit to an answer before you look at the reveal.** Write down the cell
+>    type *and* your confidence: certain / fairly sure / guessing.
+> 5. Then answer: what would have changed your mind? If nothing would have, you
+>    were not really testing a hypothesis.
+
+```{r my-cluster}
+my_cluster <- 5   # <- YOUR CLUSTER NUMBER
+
+markers |>
+    filter(cluster == my_cluster) |>
+    slice_max(avg_log2FC, n = 15) |>
+    select(gene, avg_log2FC, pct.1, pct.2, p_val_adj)
+```
+
+```{r my-cluster-umap, fig.width=11, fig.height=5}
+p1 <- DimPlot(seu, reduction = "umap", label = TRUE, repel = TRUE) + NoLegend()
+p2 <- DimPlot(seu, reduction = "umap",
+              cells.highlight = colnames(seu)[seu$seurat_clusters == my_cluster],
+              cols.highlight = "#C0392B") +
+    NoLegend() + ggtitle(paste("Cluster", my_cluster))
+p1 + p2
+```
+
+## 2.1 The reveal
+
+These are the labels from the published Sim et al. analysis.
+
+> ### <span style="color:#C0392B">"Published" is not "correct"</span>
+>
+> These labels are one careful team's interpretation, produced by people who
+> faced the same choices you just did. In at least two clusters here a
+> marker-based reading is *more specific* than the published label, and in at
+> least one the markers point somewhere the label does not.
+>
+> **If your answer disagrees, work out why before assuming you were wrong.**
+
+```{r reveal}
+key <- readRDS(file.path(DATA, "celltype_key.rds"))
+tab <- table(cluster = seu$seurat_clusters, published = key[colnames(seu)])
+
+# For your cluster: what did the original authors call these cells?
+sort(tab[as.character(my_cluster), ], decreasing = TRUE) |> head(3)
+```
+
+```{r reveal-all}
+data.frame(
+    cluster   = rownames(tab),
+    n         = as.integer(rowSums(tab)),
+    published = colnames(tab)[apply(tab, 1, which.max)],
+    agreement = paste0(round(100 * apply(tab, 1, max) / rowSums(tab)), "%")
+)
+```
+
+**Look at that table as a whole before moving on.** Two things are wrong with it,
+in opposite directions.
+
+**Too fine.** You produced **19 clusters**, and **eleven of them are
+cardiomyocytes**. That is not a failure — cardiomyocytes genuinely differ across
+foetal, young and adult hearts, and the algorithm is finding real structure. But
+"number of clusters" answered a question nobody asked. The resolution you chose
+in Practical 1 decided how finely one cell type got subdivided, and **no marker
+analysis would have warned you**, because each of those eleven clusters has
+perfectly good markers.
+
+**Too coarse.** The published analysis describes **8** cell types. Your 19
+clusters recover **6**. Run this:
+
+```{r rare-types}
+key_tab <- sort(table(key[colnames(seu)]), decreasing = TRUE)
+key_tab
+```
+
+**Smooth muscle cells** (62 nuclei) and **erythroid cells** (9 nuclei) are in
+your data, and no cluster corresponds to either. Sixty of the 62 smooth muscle
+nuclei are sitting inside cluster 3 — which is why cluster 3's agreement with the
+published labels is the worst on the board:
+
+```{r smooth-muscle}
+sm <- names(key)[key == "Smooth muscle cells"]
+table(seu$seurat_clusters[colnames(seu) %in% sm])
+```
+
+So the same analysis simultaneously split one cell type into eleven and merged
+two others into invisibility. **Nothing in the output flagged either.** Rare
+populations are the ones most likely to be lost, and — as you saw with the QC
+thresholds in Practical 1 — also the ones most likely to be filtered away
+earlier. Both failures point the same direction.
+
+> ### <span style="color:#2980B9">🤖 What the agent found here</span>
+>
+> Claude Science scored **eleven** canonical categories against its clusters:
+> cardiomyocyte, endothelial, fibroblast, pericyte/SMC, myeloid, lymphoid, mast,
+> neural/glial, epicardial, erythroid, cycling.
+>
+> Note what is on that list that is **not** in your six: pericyte/smooth muscle,
+> mast cells, erythroid — and it split immune into myeloid vs lymphoid, which is
+> your clusters 6 and 16.
+>
+> It looked for the rare populations *by name*, because it started from a
+> reference panel rather than from the clusters. You started from the clusters
+> and asked what they were. **Those two directions fail differently:** the panel
+> can find only what is on it; the cluster-first approach loses whatever failed
+> to form a cluster.
+
+> **<span style="color:#C0392B">HARD SYNC POINT.</span>** Run this now regardless of
+> where you got to. It applies the reference labels so everyone's downstream
+> numbers match.
+
+```{r sync-2}
+labels <- readRDS(file.path(DATA, "cluster_labels.rds"))
+seu$celltype <- unname(labels[as.character(seu$seurat_clusters)])
+table(seu$celltype)
+```
+
+```{r annotated-umap, fig.width=12, fig.height=5}
+p1 <- DimPlot(seu, reduction = "umap", group.by = "celltype", label = TRUE,
+              repel = TRUE) + NoLegend() + ggtitle("Cell type")
+p2 <- DimPlot(seu, reduction = "umap", group.by = "group", cols = group_cols,
+              shuffle = TRUE) + ggtitle("Developmental stage")
+p1 + p2
+```
+
+---
+
+# 3. Does composition change with development?
+
+The first biological question: as the heart matures, do the *proportions* of cell
+types change?
+
+```{r composition, fig.width=10, fig.height=5}
+comp <- seu@meta.data |>
+    count(sample, group, celltype) |>
+    group_by(sample) |>
+    mutate(prop = n / sum(n)) |>
+    ungroup()
+
+ggplot(comp, aes(sample, prop, fill = celltype)) +
+    geom_col() +
+    facet_grid(~ group, scales = "free_x", space = "free_x") +
+    labs(x = NULL, y = "proportion of nuclei", fill = NULL) +
+    theme_minimal()
+```
+
+```{r composition-box, fig.width=11, fig.height=5}
+ggplot(comp, aes(group, prop, fill = group)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15, size = 1.2) +
+    facet_wrap(~ celltype, scales = "free_y", nrow = 2) +
+    scale_fill_manual(values = group_cols) +
+    labs(x = NULL, y = "proportion") +
+    theme_minimal() + theme(legend.position = "none")
+```
+
+It is tempting to test this with a chi-square test on the cell counts. **Do not.**
+That treats every nucleus as an independent observation, so with ~7,000 nuclei
+almost everything comes out significant. Your independent units are the **nine
+donors**, not the nuclei.
+
+`propeller` does it properly: it computes each donor's proportions, transforms
+them (proportions are bounded and heteroscedastic), and tests across donors.
+
+```{r propeller}
+prop_res <- propeller(clusters = seu$celltype, sample = seu$sample,
+                      group = seu$group)
+prop_res
+```
+
+This is a strong result even at n = 3 per group. Cardiomyocytes fall from about
+**74% of nuclei in foetal hearts to 24% in adult**; immune cells and fibroblasts
+rise correspondingly. Neurons do not change.
+
+Two cautions before you believe it:
+
+1. **These are nuclear proportions, not cell proportions.** Adult cardiomyocytes
+   are frequently binucleated and polyploid, and non-myocytes keep dividing. Some
+   of this shift is real change in tissue composition, and some is a change in
+   how many nuclei a cardiomyocyte contributes. A proportion is only as
+   interpretable as its denominator.
+2. **Compositions are constrained to sum to 1.** If cardiomyocytes fall, then
+   *everything else must rise* whether or not anything happened to it. You cannot
+   read the fibroblast result independently of the cardiomyocyte result.
+
+Recall too from Practical 1 that donor `a3` contributes far fewer nuclei than the
+others, so its proportions are the noisiest of the nine — and it is one of only
+three adults.
+
+> ### <span style="color:#2980B9">🤖 What the agent did here</span>
+>
+> It reported cardiomyocytes falling from **64.4%** of cells in foetal hearts to
+> **23.3%** in adult — essentially the same numbers you just produced — and
+> described the change as developmental biology.
+>
+> **It ran no statistical test of composition at all.** No propeller, no scCODA,
+> no chi-square. Nothing.
+>
+> And here is the part worth sitting with: it wrote a careful, honest caveats
+> section listing four limitations of its analysis. **This was not one of them.**
+>
+> You cannot catch a missing analysis by reading the limitations. You catch it by
+> knowing what should have been there.
+
+---
+
+# 4. Differential expression — the important part
+
+Second question: within cardiomyocytes, which genes change between foetal and
+adult hearts?
+
+## 4.1 The tempting approach
+
+Every scRNA-seq tutorial reaches for `FindMarkers()`. Let us run it — but on a
+**random 100 nuclei per group**, so it finishes in about ten seconds.
+
+```{r cm-subset}
+cm <- subset(seu, subset = celltype == "Cardiomyocytes" &
+                           group %in% c("adult", "fetal"))
+table(cm$group, cm$sample)
+```
+
+```{r naive-de-small}
+set.seed(42)
+cells <- unlist(lapply(c("adult", "fetal"), function(g)
+    sample(colnames(cm)[cm$group == g], 100)))
+small <- subset(cm, cells = cells)
+
+Idents(small) <- "group"
+naive_small <- FindMarkers(small, ident.1 = "adult", ident.2 = "fetal",
+                           assay = "SCT", verbose = FALSE)
+sum(naive_small$p_val_adj < 0.05)
+```
+
+Several hundred significant genes, from 200 nuclei.
+
+Now: **before running the next chunk, predict.** If we repeat this with all
+~3,200 cardiomyocytes instead of 200, what happens to that number? Write down a
+guess.
+
+## 4.2 A control that should find nothing
+
+Rather than scaling up, let us do something more useful: run **exactly the same
+test on a comparison where the right answer is known to be "nothing"**.
+
+Take two foetal donors. Same developmental stage, same tissue, same protocol.
+There is no developmental difference between `f1` and `f2` — they are two
+instances of the same biological condition. A test asking "do these differ?"
+should come back nearly empty.
+
+These are pre-computed (about four minutes to run), all at the **same 300 cells
+per side**, so the numbers are directly comparable.
+
+```{r de-demo}
+demo <- readRDS(file.path(DATA, "de_demo.rds"))
+demo$wilcoxon
+```
+
+```{r demo-plot, fig.width=7.5, fig.height=4}
+ggplot(demo$wilcoxon, aes(reorder(comparison, n_sig), n_sig, fill = kind)) +
+    geom_col() +
+    coord_flip() +
+    scale_fill_manual(values = c(`real contrast` = "#2980B9",
+                                 `same stage (foetal)` = "#C0392B")) +
+    labs(x = NULL, y = "genes called significant (padj < 0.05)", fill = NULL,
+         title = "Per-nucleus Wilcoxon, 300 cells per side",
+         subtitle = "the red bars are comparisons with no biology in them") +
+    theme_minimal()
+```
+
+Two donors at the same developmental stage produce **hundreds of "significantly
+differentially expressed" genes**. There is no developmental biology in that
+comparison. Every one of those genes is donor variation — genetics, age, tissue
+handling, dissociation, library prep — being reported to you as a finding.
+
+And that noise floor is a substantial fraction of the "real" adult-vs-foetal
+result from the same test at the same cell count.
+
+**So when the per-nucleus test tells you 2,000 genes separate adult from foetal
+cardiomyocytes, it cannot distinguish "adult differs from foetal" from "these
+three donors differ from those three donors."** It has no way to tell them apart,
+because it never modelled donor at all.
+
+Now try the same control with pseudobulk and you hit something instructive:
+
+```{r pb-null, eval=FALSE}
+# f1 vs f2, pseudobulk: one sample per group.
+# limma cannot fit this - there is no residual variance to estimate.
+```
+
+It refuses. **That is the correct answer.** You cannot test a difference between
+two groups with one sample in each. The per-nucleus test does not refuse — it
+manufactures thousands of degrees of freedom out of one donor's nuclei and hands
+back a gene list.
+
+## 4.3 Why the naive test is wrong
+
+That test treated every nucleus as an independent replicate. It is not. Nuclei
+from the same donor share that donor's genetics, age, medication, tissue handling
+and library prep — they are **subsamples of one biological observation**, not
+independent ones.
+
+This is **pseudoreplication**, and it is the single most common statistical error
+in the single-cell literature (Squair et al., *Nat Commun* 2021). The effective
+sample size is not thousands of nuclei. It is **three donors per group.**
+
+Inflating n inflates significance. A p-value computed on 3,800 nuclei is
+answering "are these two piles of nuclei different?", which they always are.
+The question you actually asked was "do adult hearts differ from foetal hearts?"
+
+## 4.3 The defensible approach: pseudobulk
+
+Sum counts within each donor × cell type, giving one profile per donor — then use
+methods built for a handful of replicates, which is exactly what bulk RNA-seq
+methods are.
+
+```{r pseudobulk}
+seu$Celltype <- seu$celltype
+seu$Sample   <- seu$sample
+DefaultAssay(seu) <- "RNA"
+
+pb <- Seurat2PB(seu, sample = "Sample", cluster = "Celltype")
+dim(pb)
+
+# Cardiomyocytes only
+pb_cm <- pb[, pb$samples$cluster == "Cardiomyocytes"]
+pb_cm$samples$group <- sub("[0-9]+$", "", pb_cm$samples$sample)
+pb_cm$samples$group <- c(a = "adult", f = "fetal", y = "young")[pb_cm$samples$group]
+table(pb_cm$samples$group)
+```
+
+Nine columns. That is the real sample size, and it was always the real sample
+size.
+
+```{r pb-de}
+keep <- filterByExpr(pb_cm, group = pb_cm$samples$group)
+pb_cm <- pb_cm[keep, , keep.lib.sizes = FALSE]
+pb_cm <- normLibSizes(pb_cm)
+
+design <- model.matrix(~ 0 + factor(pb_cm$samples$group))
+colnames(design) <- levels(factor(pb_cm$samples$group))
+
+v   <- voom(pb_cm, design, plot = TRUE)
+fit <- lmFit(v, design)
+fit <- contrasts.fit(fit, makeContrasts(adult - fetal, levels = design))
+fit <- eBayes(fit)
+
+summary(decideTests(fit))
+```
+
+```{r pb-top}
+topTable(fit, n = 15)
+```
+
+```{r volcano, fig.width=7, fig.height=5.5}
+tt <- topTable(fit, n = Inf)
+tt$sig <- tt$adj.P.Val < 0.05 & abs(tt$logFC) > 1
+ggplot(tt, aes(logFC, -log10(adj.P.Val), colour = sig)) +
+    geom_point(alpha = 0.4, size = 1) +
+    scale_colour_manual(values = c(`FALSE` = "grey70", `TRUE` = "#C0392B")) +
+    labs(title = "Cardiomyocytes: adult vs foetal (pseudobulk)",
+         x = "log2 fold change", y = "-log10 adjusted p") +
+    theme_minimal() + theme(legend.position = "none")
+```
+
+> ### <span style="color:#2980B9">🤖 What the agent did here</span>
+>
+> Same contrast, same data. It ran **per-cell Wilcoxon** and reported
+> **5,967 significant genes** as its headline result, with a volcano plot.
+>
+> Then, in its caveats:
+>
+> > *"Wilcoxon on individual cells treats cells as replicates and **inflates
+> > significance** — for anything you'd report, redo this as donor-level
+> > pseudobulk with DESeq2 at n=3 per stage."*
+>
+> It is completely right. It diagnosed the problem you have just spent twenty
+> minutes on, unprompted, in writing.
+>
+> **And it did not do it.** Pseudobulk appears in its output only as a heatmap —
+> a picture, not a test. The number in the headline is the one it told you not to
+> use.
+>
+> **The failure is not ignorance. It is that the caveat and the number do not
+> carry equal weight** — and a reader who skims takes away 5,967.
+
+> ### <span style="color:#C0392B">DECISION 5 — which number do you report? *(10 min)*</span>
+>
+> You now have two answers to the same biological question.
+>
+> 1. Write both counts down. What is the ratio?
+> 2. Both analyses are "correct" in that the code ran and the maths is right.
+>    What makes one of them *wrong*?
+> 3. The per-nucleus test is faster, gives more hits, and appears in hundreds of
+>    published papers. Given that, why should you use the other one?
+> 4. Suppose a reviewer asks you to justify your choice. Write the sentence you
+>    would put in the response. That sentence is the deliverable — not the gene
+>    list.
+
+---
+
+# 5. What this analysis cannot tell you
+
+Worth being explicit, because your report will need a section like this:
+
+- **n = 3 per group.** Small. `propeller` finding little is a statement about
+  power as much as about biology.
+- **Sex is confounded with stage** (foetal 2M/1F, young 2M/1F, adult 1M/2F).
+  Sex-chromosome genes were removed, which helps but does not fix an unbalanced
+  design.
+- **Donors differ in depth and quality.** You saw this in Practical 1: `a3` loses
+  far more nuclei to any QC threshold than `f1`. Those two facts are connected.
+- **Cell type labels are an interpretation**, not a measurement. You chose a
+  clustering resolution; that choice produced eleven cardiomyocyte clusters that
+  were then collapsed back into one label. A different resolution gives different
+  boundaries and therefore different pseudobulk profiles.
+- **Pseudobulk discards within-cell-type heterogeneity** by construction. If the
+  interesting biology is a shift in the *distribution* of cell states rather than
+  in the mean, this analysis will not see it.
+
+---
+
+# The five decisions
+
+| | Your value | What a default would have done |
+|---|---|---|
+| 1. QC thresholds | | `percent.mt < 5` |
+| 2. Number of PCs | | 10 |
+| 3. Clustering resolution | | 0.8 |
+| 4. Cluster identity | | — |
+| 5. DE method | | per-nucleus Wilcoxon |
+
+Every one of these was a choice. None of them was made for you by the data, and
+none of them would have produced an error message if you had chosen badly.
+
+```{r session}
+sessionInfo()
+```

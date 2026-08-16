@@ -1,0 +1,312 @@
+---
+title: "Single-cell RNA-seq"
+subtitle: "Module II: From clusters to conclusions"
+author: "Dr Jiadong Mao </br> Melbourne Integrative Genomics (MIG) </br> BINF90004 Bioinformatics Case Studies 2026"
+format:
+  revealjs:
+    theme: default
+    slide-number: true
+    chalkboard: true          # press 'b' to draw, 'c' for chalkboard
+    incremental: false
+    width: 1280
+    height: 720
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r setup}
+suppressPackageStartupMessages({
+    library(Seurat); library(ggplot2); library(dplyr); library(speckle)
+})
+# Resolve the data folder for every layout this deck is rendered from:
+# repo root, repo slides/, and the private authoring folder (../dist).
+D <- if (dir.exists("data")) "data" else
+     if (dir.exists("../data")) "../data" else "../dist"
+group_cols <- c(fetal = "#4E79A7", young = "#F28E2B", adult = "#59A14F")
+# Loaded here rather than mid-deck: several later slides use these, and if they
+# are loaded inside a slide chunk, deleting that slide silently breaks them.
+s2  <- readRDS(file.path(D, "checkpoints/02_integrated_clustered.rds"))
+key <- readRDS(file.path(D, "celltype_key.rds"))
+lab <- readRDS(file.path(D, "cluster_labels.rds"))
+s2$celltype <- unname(lab[as.character(s2$seurat_clusters)])
+```
+
+## Where we are
+
+You have **19 clusters**. Clusters are numbered blobs.
+
+<br>
+
+Today's second half: give them names, then use those names to make two
+biological claims.
+
+1. Which cell types change in abundance as the heart matures?
+2. Which genes change *within* a cell type across dev stages?
+
+
+
+# Part 1 Annotation
+
+## Three ways to name a cluster
+
+::: {.incremental}
+**Manual, marker-based** — find genes enriched in the cluster, look them up.
+Flexible, slow, needs domain knowledge.
+
+**Reference-based** — map onto an annotated atlas (Azimuth, SingleR,
+CellTypist). Fast, reproducible, fails on cell types absent from the reference.
+
+**Soft / continuous** — score every cell against every reference phenotype
+instead of assigning one label. Eg **Φ-Space**
+:::
+
+
+## Where are the rare cells
+
+Possible ways to miss them:
+
+1. **QC thresholds** — endothelial and immune cells were hit hardest by
+   `percent.mt < 5`
+2. **Clustering** — smooth muscle never formed a cluster of its own
+
+
+
+# Part 2 Composition
+
+## Do proportions change?
+
+```{r comp, fig.width=10, fig.height=4.5}
+s2@meta.data |>
+    count(sample, group, celltype) |>
+    group_by(sample) |> mutate(prop = n / sum(n)) |> ungroup() |>
+    ggplot(aes(sample, prop, fill = celltype)) +
+    geom_col() +
+    facet_grid(~ group, scales = "free_x", space = "free_x") +
+    labs(x = NULL, y = "proportion of nuclei", fill = NULL) +
+    theme_minimal()
+```
+
+
+## propeller
+
+Your independent units are the **nine donors**
+
+::: {.incremental}
+1. Compute each **donor's** proportion of every cell type 
+2. **Transform** them (logit or arcsin-square-root) to Euclidean space
+3. Fit a linear model per cell type, **borrowing information across
+   cell types** (empirical Bayes machinery, same as limma)
+4. **t-test** for two groups; **ANOVA F-test** for more than two
+:::
+
+<div style="font-size: 0.5em; color: #5f6b7a; margin-top: 0.8em;">
+Phipson, Sim, Porrello, Hewitt, Powell & Oshlack (2022), *propeller: testing for
+differences in cell type proportions in single cell data*.
+Bioinformatics 38(20):4720–4726.
+</div>
+
+::: {.notes}
+Step 3 is the part worth a sentence: with three donors a group you cannot
+estimate a variance per cell type, so propeller pools that information across
+cell types. Same trick as limma in bulk RNA-seq, same reason - not enough
+replicates to go it alone.
+
+Step 1 is the whole point. Everything else is bookkeeping on nine numbers.
+
+Worth saying: this is the Phipson lab's method, and the practicals are adapted
+from their workshop. CHECK the author list before claiming the dataset authors
+are on it.
+:::
+
+## Reading the output
+
+::: {style="font-size: 0.7em;"}
+```{r propeller}
+pr <- propeller(clusters = s2$celltype, sample = s2$sample, group = s2$group)
+knitr::kable(pr[, c("PropMean.fetal", "PropMean.young", "PropMean.adult", "FDR")], digits = 2)
+```
+:::
+
+- **`PropMean.*`** — mean *donor* proportion in each group
+- **`FDR`** — Benjamini–Hochberg, across the `r nrow(pr)` cell types tested
+
+::: {.fragment}
+`r sum(pr$FDR < 0.05)` of `r nrow(pr)` cell types changed with development.
+Neurons did not.
+:::
+
+## Compositional bias {background-color="#F5E9E9"}
+
+Cardiomyocyte nuclei fell from **~74%** to **~24%**. Every other proportion
+*has* to rise, whether or not anything happened to those cells.
+
+<br>
+
+::: {.fragment}
+**propeller does not control for this.** It stabilises the variance and fits one
+linear model per cell type. 
+:::
+
+::: {.fragment}
+Drop cardiomyocytes, renormalise among the remaining five, rerun:
+
+::: {style="font-size: 0.7em;"}
+```{r comp-bias}
+k <- s2$celltype != "Cardiomyocytes"
+pr_nc <- propeller(clusters = s2$celltype[k], sample = s2$sample[k],
+                   group = s2$group[k])
+ct <- setdiff(rownames(pr), "Cardiomyocytes")
+knitr::kable(data.frame(`FDR, all 6 types`  = pr[ct, "FDR"],
+                        `FDR, without CM`   = pr_nc[ct, "FDR"],
+                        row.names = ct, check.names = FALSE), digits = 3)
+```
+:::
+
+:::
+
+::: {.fragment}
+Proportions only ever tell you about **relative** abundance. 
+:::
+
+
+
+# Part 3 Differential expression
+
+## The question
+
+Within cardiomyocytes: which genes differ between adult and foetal hearts?
+
+<br>
+
+Most commonly used: `Seurat::FindMarkers()`. On this data it returns
+**~2,000 significant genes**.
+
+::: {.fragment}
+That number is inflated.
+:::
+
+## The problem of pseudoreplication
+
+`FindMarkers` treats **every nucleus as an independent replicate**.
+
+They are not. Nuclei from one donor share:
+
+- that donor's genome
+- their age, sex, medication, disease history
+- one tissue dissociation, one library prep, one sequencing run
+
+::: {.fragment}
+<br>
+
+**Effective sample size is 3 donors per group, not thousandsd of nuclei.**
+:::
+
+
+
+## The agent knew this 
+
+One of the 'caveats' reported:
+
+> "Wilcoxon on individual cells treats cells as replicates and **inflates
+> significance** — for anything you'd report, redo this as donor-level
+> pseudobulk."
+
+::: {.fragment}
+Its headline, same report: **"Adult vs. foetal cardiomyocytes: 5,967
+significant genes"**. But it didn't do anything.
+:::
+
+
+
+## What can we do: pseudobulking
+
+Sum counts within each **donor × cell type**. One profile per donor.
+
+<br>
+
+Then use methods built for a handful of replicates — which is what bulk RNA-seq
+methods are. `edgeR`, `limma-voom`, `DESeq2`.
+
+::: {.fragment}
+<br>
+
+Nine columns instead of seven thousand. **That was always the real sample size.**
+
+We will see results in practical.
+:::
+
+<div style="font-size: 0.5em; color: #5f6b7a; margin-top: 0.8em;">
+Squair et al. (2021), *Confronting false discoveries in single-cell differential
+expression*. Nature Communications 12:5692.
+</div>
+
+
+# Part 4 Where the field is going
+
+## Beyond discrete labels
+
+**Trajectory / pseudotime** — order cells along a continuous process rather than
+binning them. Slingshot, Monocle3, DPT, RNA velocity; our own **PhiSpace**.
+
+**Cell–cell interaction** — infer signalling between cell types from
+ligand–receptor expression. CellPhoneDB, CellChat.
+
+**Cell-specific networks** — a co-expression network *per cell* rather than per
+cluster. Our own **NeighbourNet**.
+
+
+
+## Spatial transcriptomics
+
+scRNA-seq tells you **which cells are doing what**.
+
+Spatial tells you **where they are doing it**.
+
+- Sequencing-based: Visium, Visium HD, Slide-seq
+- Imaging-based: Xenium, CosMx, MERFISH
+
+::: {.fragment}
+Tumour microenvironment, tissue architecture, niches — questions dissociation
+destroys.
+:::
+
+
+## Foundation models
+
+scGPT, Geneformer, scFoundation, UCE — transformers pre-trained on tens of
+millions of cells.
+
+Promise: transfer to new tissues, few-shot annotation, in-silico perturbation.
+
+::: {.fragment}
+Open question: **do they beat well-tuned simple baselines?** For several tasks
+the honest answer is still "not clearly".
+:::
+
+::: {.fragment}
+This might be a training data issue.
+
+::: {style="font-size: 0.55em; line-height: 1.35;"}
+**Beating simple baselines:** Kedzierska, Crawford, Amini *et al.* (2025),
+*Zero-shot evaluation reveals limitations of single-cell foundation models*.
+Genome Biology 26:101.
+
+**Batch effects:** Wang, Zhang & Zhang (2025), *Batch effects remain a
+fundamental barrier to universal embeddings in single-cell foundation models*.
+bioRxiv 2025.12.19.695371. *(preprint)*
+
+**Training data scale:** DenAdel, Hughes, Thoutam *et al.* (2026),
+*Evaluating the role of pretraining dataset size and diversity on single-cell
+foundation model performance*. Nature Methods 23:1447–1457.
+:::
+
+
+:::
+
+
+
+
